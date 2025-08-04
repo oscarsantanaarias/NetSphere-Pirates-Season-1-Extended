@@ -317,6 +317,7 @@
         SPlayerGameModeChangeAck = 21041,
         SRefreshGameRuleInfoAck = 21042,
         SArcadeScoreSyncAck = 21043,
+        ArcadeStageClear_Req = 20029,
         SArcadeBeginRoundAck = 21044,
         SArcadeStageBriefingAck = 21045,
         SArcadeEnablePlayeTimeAck = 21046,
