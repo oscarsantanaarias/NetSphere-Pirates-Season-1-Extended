@@ -114,9 +114,7 @@
     <Compile Include="Commands\GMCommands.cs" />
     <Compile Include="Game\GameRules\ArcadeGameRule.cs" />
     <Compile Include="Game\GameRules\CaptainGameRule.cs" />
-    <Compile Include="Game\GameRules\OneweapononeskillGameRule.cs" />
     <Compile Include="Game\GameRules\PracticeGameRule.cs" />
-    <Compile Include="Game\GameRules\RaceGameRule.cs" />
     <Compile Include="Game\GameRules\SecureRandomProvider.cs" />
     <Compile Include="ServerlistManager.cs" />
     <Compile Include="Channel.cs" />
