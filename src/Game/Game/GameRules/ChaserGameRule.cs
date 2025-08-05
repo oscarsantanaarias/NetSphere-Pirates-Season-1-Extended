@@ -190,24 +190,25 @@ namespace Netsphere.Game.GameRules
             if (killer == Chaser && target == Bonus)
             {
                 stats.BonusKills++; // Award bonus points to the chaser for killing the bonus target
-                Bonus = GetBonus();  // Assign a new bonus target if the previous one is killed
+                Bonus = GetBonus(); // Assign a new bonus target if the previous one is killed
             }
 
             target.RoomInfo.State = PlayerState.Dead;
+            NextTarget(); // Try to select new bonus target
 
-            var targetPlayersAlive = GetPlayersAlive().ToList();
-            targetPlayersAlive.Remove(target);
+            // If no-one left alive, trigger chaser win
+            if (!GetPlayersAlive().Any(plr => plr != Chaser))
+            {
+                ChaserWin();
+            }
 
-            var alivePlayersExceptChaser = GetPlayersAlive().Where(plr => plr != Chaser).ToList();
+            // Chaser Loses if they become the target
+            if (Chaser == target)
+            {
+                ChaserLose();
+            }
 
-            Room.Broadcast(new SChangeSlaughtererAckMessage(
-                Chaser.Account.Id,
-                alivePlayersExceptChaser.Select(plr => plr.Account.Id).ToArray()
-            ));
-
-            NextTarget();
-
-            base.OnScoreKill(killer, assist, target, attackAttribute);
+            base.OnScoreKill(killer, null, target, attackAttribute);
         }
 
 
