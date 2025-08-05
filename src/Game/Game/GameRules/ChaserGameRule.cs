@@ -21,6 +21,7 @@ namespace Netsphere.Game.GameRules
         private TimeSpan _nextChaserTimer; // Countdown until next chaser selection
 
         private bool _waitingNextChaser;
+        private bool _roundComplete;
         private Player _bonus; // Bonus target player
 
         private bool _scoringDisabled = false;
@@ -110,7 +111,10 @@ namespace Netsphere.Game.GameRules
 
             var teamMgr = Room.TeamManager;
 
-            if (StateMachine.IsInState(GameRuleState.Playing) && !StateMachine.IsInState(GameRuleState.EnteringResult) && !StateMachine.IsInState(GameRuleState.Result) && RoundTime >= TimeSpan.FromSeconds(5))
+            if (StateMachine.IsInState(GameRuleState.Playing) &&
+                !StateMachine.IsInState(GameRuleState.EnteringResult) &&
+                !StateMachine.IsInState(GameRuleState.Result) &&
+                RoundTime >= TimeSpan.FromSeconds(5))
             {
                 // Prevent premature result trigger if not enough players
                 if (teamMgr.PlayersPlaying.Count() < PlayersNeededToStart)
@@ -118,6 +122,23 @@ namespace Netsphere.Game.GameRules
 
                 if (RoundTime >= Room.Options.TimeLimit)
                     StateMachine.Fire(GameRuleStateTrigger.StartResult);
+
+                // Chaser round time logic
+                if (RoundTime >= Room.Options.TimeLimit - _chaserRoundTime)
+                {
+                    if (!GetPlayersAlive().Any())
+                    {
+                        ChaserWin();
+                    }
+                    if (_chaserTimer >= _chaserRoundTime)
+                    {
+                        ChaserLose();
+                    }
+                    if (_roundComplete)
+                    {
+                        StateMachine.Fire(GameRuleStateTrigger.StartResult);
+                    }
+                }
 
                 if (_waitingNextChaser)
                 {
@@ -128,8 +149,8 @@ namespace Netsphere.Game.GameRules
                     if (_nextChaserTimer >= s_nextChaserWaitTime)
                     {
                         NextChaser();
-						// Re-enable scoring after chaser change
-                        _scoringDisabled = false; 
+                        // Re-enable scoring after chaser change
+                        _scoringDisabled = false;
                     }
                 }
                 else
@@ -143,6 +164,7 @@ namespace Netsphere.Game.GameRules
                             ChaserLose();
                     }
 
+                    // Chaser wins if no players are alive
                     if (_chaserTimer > s_spanTime && !GetPlayersAlive().Any())
                         ChaserWin();
                 }
@@ -281,6 +303,7 @@ namespace Netsphere.Game.GameRules
 
         public void RoundEnd()
         {
+            _roundComplete = true;
             _waitingNextChaser = true;
             _nextChaserTimer = TimeSpan.Zero;
 
@@ -297,6 +320,7 @@ namespace Netsphere.Game.GameRules
 
         public void NextChaser()
         {
+            _roundComplete = false;
             //Round duration based on player count, TODO: Needs adjusting to specific times per player #
             _chaserRoundTime = Room.Players.Count < 7
                 ? TimeSpan.FromSeconds(60)
