@@ -68,7 +68,12 @@ namespace Netsphere.Game.GameRules
 
             StateMachine.Configure(GameRuleState.EnteringResult)
                 .SubstateOf(GameRuleState.Playing)
-                .Permit(GameRuleStateTrigger.StartResult, GameRuleState.Result);
+                .Permit(GameRuleStateTrigger.StartResult, GameRuleState.Result)
+            .OnEntry(() =>
+            {
+                Bonus = null;
+                Chaser = null;
+            });
 
             StateMachine.Configure(GameRuleState.Result)
                 .SubstateOf(GameRuleState.Playing)
@@ -77,6 +82,7 @@ namespace Netsphere.Game.GameRules
                 {
                     Bonus = null;
                     Chaser = null;
+                    _waitingNextChaser = false;
                     // Fix for chaser display lingering after match ends
                     Room.Broadcast(new SChangeSlaughtererAckMessage(0));
                 });
