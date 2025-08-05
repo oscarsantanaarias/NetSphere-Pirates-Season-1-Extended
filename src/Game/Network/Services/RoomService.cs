@@ -447,24 +447,14 @@ namespace Netsphere.Network.Services
 
 
         [MessageHandler(typeof(CSlaughterAttackPointReqMessage))]
-        public void CSlaughterAttackPointReq(GameSession session, CSlaughterAttackPointReqMessage message)
+        public void SlaughterAttackPointReq(GameSession session, CSlaughterAttackPointReqMessage message)
         {
-            var plr = session.Player;
-            var room = plr.Room;
-
-            //Logger.ForAccount(plr.Account).Information($"Charser Unk1 {message.Unk1}, unk2 {message.Unk2}");
-
-            if (room.Options.MatchKey.GameRule == GameRule.Chaser)
-                ((ChaserGameRule)room.GameRuleManager.GameRule).OnScoreAttack(plr, message.Unk1, message.Unk2);
-
-            var resp = new SSlaughterAttackPointAckMessage
-            {
-                AccountId = message.AccountId,
-                Unk1 = message.Unk1,
-                Unk2 = message.Unk2
-            };
-
-            plr.Room.Broadcast(resp);
+            var room = session.Player?.Room;
+            if (room?.GameRuleManager.GameRule.GameRule != GameRule.Chaser)
+                return;
+            //Logger.ForAccount(plr.Account).Information($"Charser Unk {message.Unk}");
+            var target = room.Players.GetValueOrDefault(message.AccountId);
+            ((ChaserGameRule)room.GameRuleManager.GameRule).OnScoreAttack(target, message.Unk1, message.Unk2);
         }
 
         [MessageHandler(typeof(CSlaughterHealPointReqMessage))]

@@ -154,13 +154,26 @@ namespace Netsphere.Game.GameRules
             return new ChaserPlayerRecord(plr);
         }
 
-        // Most basic implementation, semi-working
-        
         public void OnScoreAttack(Player plr, float unk1, float unk2)
         {
             var stats = GetRecord(plr);
+            stats.Kills++;
             stats.SwordRanking += unk1;
             stats.GunRanking += unk2;
+
+            //Send the attack score to the attacking player
+            plr.Session.SendAsync(new SSlaughterAttackPointAckMessage
+            {
+                AccountId = plr.Account.Id,
+                Unk1 = unk1,
+                Unk2 = unk2
+            });
+
+            //Send the attack score to the Chaser
+            Chaser.Session.SendAsync(new SSlaughterAttackPointAckMessage
+            {
+                // Unk
+            });
         }
 
         public override void OnScoreKill(Player killer, Player assist, Player target, AttackAttribute attackAttribute)
