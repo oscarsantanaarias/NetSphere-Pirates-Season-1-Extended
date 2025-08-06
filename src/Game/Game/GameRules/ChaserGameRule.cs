@@ -277,12 +277,6 @@ namespace Netsphere.Game.GameRules
                 playerIds.Add((ulong)player.Account.Id);
             }
 
-            // Broadcast the updated player state and score
-            Room.Broadcast(new SChangeSlaughtererAckMessage(
-                Chaser.Account.Id,
-                playerIds.ToArray()
-            ));
-
             NextTarget();
 
             base.OnScoreSuicide(plr);
