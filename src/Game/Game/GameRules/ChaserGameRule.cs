@@ -108,7 +108,15 @@ namespace Netsphere.Game.GameRules
         public override void PlayerLeft(object room, RoomPlayerEventArgs e)
         {
             if (StateMachine.IsInState(GameRuleState.FirstHalf))
+            {
                 base.PlayerLeft(room, e);
+
+                // If Chaser is disconnected pick a new one
+                if (Chaser == null)
+                {
+                    NextChaser();
+                }
+            }
         }
 
         public override void Update(TimeSpan delta)
