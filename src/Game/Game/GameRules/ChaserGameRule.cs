@@ -110,11 +110,17 @@ namespace Netsphere.Game.GameRules
             if (StateMachine.IsInState(GameRuleState.FirstHalf))
             {
                 base.PlayerLeft(room, e);
-
-                // If Chaser is disconnected pick a new one
-                if (Chaser == null)
+                //If chaser is leaving player, set chaser to null & fire off next chaser
+                if (e.Player == Chaser)
                 {
+                    Chaser = null;
                     NextChaser();
+                }
+                //If player leaving is the target/bonus, set null & fire off next target
+                if (e.Player == Bonus)
+                {
+                    Bonus = null;
+                    NextTarget();
                 }
             }
         }
