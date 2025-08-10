@@ -218,19 +218,24 @@ namespace Netsphere.Game.GameRules
             stats.SwordRanking += unk1;
             stats.GunRanking += unk2;
 
-            //Send the attack score to the attacking player
-            plr.Session.SendAsync(new SSlaughterAttackPointAckMessage
+            foreach (var plrInRoom in Room.TeamManager.PlayersPlaying)
             {
-                AccountId = plr.Account.Id,
-                Unk1 = unk1,
-                Unk2 = unk2
-            });
+                if (Chaser == plrInRoom)
+                {
+                    // Do nothing, if you send score data to chaser it will duplicate the score
+                }
+                else
+                {
+                    // Send Score update packets to remaining players
+                    plrInRoom.Session.SendAsync(new SSlaughterAttackPointAckMessage
+                    {
+                        AccountId = plr.Account.Id,
+                        Unk1 = unk1, // Send sword ranking
+                        Unk2 = unk2 // Send gun ranking
 
-            //Send the attack score to the Chaser
-            Chaser.Session.SendAsync(new SSlaughterAttackPointAckMessage
-            {
-                // Unk
-            });
+                    });
+                }
+            }
         }
 
         public override void OnScoreKill(Player killer, Player assist, Player target, AttackAttribute attackAttribute)
