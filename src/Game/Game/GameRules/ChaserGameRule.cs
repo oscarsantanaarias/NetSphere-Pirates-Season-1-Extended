@@ -107,20 +107,35 @@ namespace Netsphere.Game.GameRules
 
         public override void PlayerLeft(object room, RoomPlayerEventArgs e)
         {
-            if (StateMachine.IsInState(GameRuleState.FirstHalf))
+            //if target is in the list of players alive remove it
+            var targetPlayersAlive = GetPlayersAlive().ToList();
+            foreach (var target in targetPlayersAlive)
+            {
+                if (target == e.Player)
+                {
+                    targetPlayersAlive.Remove(e.Player);
+                }
+            }
+
+            if (StateMachine.IsInState(GameRuleState.Neutral) || StateMachine.IsInState(GameRuleState.Playing))
             {
                 base.PlayerLeft(room, e);
-                //If chaser is leaving player, set chaser to null & fire off next chaser
+                //If chaser is leaving player, set chaser to null & set chaser lose
                 if (e.Player == Chaser)
                 {
                     Chaser = null;
-                    NextChaser();
+                    ChaserLose();
                 }
-                //If player leaving is the target/bonus, set null & fire off next target
-                if (e.Player == Bonus)
+
+                else if (e.Player != Chaser)
                 {
-                    Bonus = null;
-                    NextTarget();
+                    //If player leaving is the target/bonus, set null & fire off next target
+                    if (e.Player == Bonus)
+                    {
+                        Bonus = null;
+                        NextTarget();
+
+                    }
                 }
             }
         }
