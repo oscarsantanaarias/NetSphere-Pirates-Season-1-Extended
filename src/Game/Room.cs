@@ -445,6 +445,23 @@ namespace Netsphere
             var gameRule = GameRuleManager.GameRule;
             //var isResult = gameRule.StateMachine.IsInState(GameRuleState.Result);
             Broadcast(new SBriefingAckMessage(isResult, false, gameRule.Briefing.ToArray(isResult)));
+
+        }
+        public void BroadcastBriefing(Player plr)
+        {
+            bool isResult = false;
+            var gameRule = GameRuleManager.GameRule;
+
+            var isPlaying = gameRule.StateMachine.IsInState(GameRuleState.Playing);
+
+            if (gameRule.GameRule == GameRule.Chaser && isPlaying && gameRule.notInitialBriefing)
+            {
+                //Player intruding, dont send Briefing and set as dead
+                plr.RoomInfo.State = PlayerState.Dead;
+            }
+
+            else
+                Broadcast(new SBriefingAckMessage(isResult, false, gameRule.Briefing.ToArray(isResult)));
         }
 
         #endregion

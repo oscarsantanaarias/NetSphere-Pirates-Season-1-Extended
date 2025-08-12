@@ -12,6 +12,7 @@ namespace Netsphere.Game.GameRules
         private static readonly TimeSpan PreResultWaitTime = TimeSpan.FromSeconds(9);
         private static readonly TimeSpan HalfTimeWaitTime = TimeSpan.FromSeconds(24);
         private static readonly TimeSpan ResultWaitTime = TimeSpan.FromSeconds(14);
+        internal bool notInitialBriefing;
 
         public abstract GameRule GameRule { get; }
         public Room Room { get; }

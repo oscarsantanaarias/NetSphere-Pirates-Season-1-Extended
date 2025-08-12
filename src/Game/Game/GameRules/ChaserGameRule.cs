@@ -64,6 +64,7 @@ namespace Netsphere.Game.GameRules
                 {
                     _waitingNextChaser = true;
                     NextChaser();
+                    notInitialBriefing = true;
                 });
 
             StateMachine.Configure(GameRuleState.EnteringResult)
@@ -271,6 +272,16 @@ namespace Netsphere.Game.GameRules
             }
 
             base.OnScoreKill(killer, null, target, attackAttribute);
+
+            target.RoomInfo.State = PlayerState.Dead;
+
+            if (killer == Chaser && target == Bonus)
+            {
+                stats.BonusKills++; // Award bonus points to the chaser for killing the bonus target
+
+                NextTarget(); // Try to select new bonus target // Assign a new bonus target if the previous one is killed
+            }
+
         }
 
 
@@ -320,20 +331,28 @@ namespace Netsphere.Game.GameRules
         {
             if (!StateMachine.IsInState(GameRuleState.Playing))
                 return;
+            // WIP
+            // Try to select a new bonus target from alive non-chaser players
+            Bonus = GetBonus();
 
-            var targetfound = false;
 
-            foreach (var plr in GetPlayersAlive())
-            {
-				//New bonus target
-                if (plr != Chaser && !targetfound)
-                {
-                    Bonus = plr;
-                    targetfound = true;
-                    Room.Broadcast(new SChangeBonusTargetAckMessage(Bonus.Account.Id));
-                }
+            if ( Bonus != null) {
+                Room.Broadcast(new SChangeBonusTargetAckMessage(Bonus.Account.Id));// Notify players of new bonus target
             }
+            return;
         }
+
+        private Player GetBonus()
+        {
+            // Return the player with the highest total score that isn't the chaser
+            var scoreList = GetPlayersAlive()
+                .OrderByDescending(plr => plr.RoomInfo.Stats.TotalScore);
+
+            return scoreList.FirstOrDefault();
+
+        }
+
+
 
         public void RoundEnd()
         {
@@ -449,14 +468,6 @@ namespace Netsphere.Game.GameRules
                 return false;
 
             return true;
-        }
-
-        private Player GetBonus()
-        {
-            // Get the player with the highest total score that isn't the chaser
-            return GetPlayersAlive()
-                .OrderByDescending(plr => plr.RoomInfo.Stats.TotalScore)
-                .FirstOrDefault();
         }
 
         public IEnumerable<Player> GetPlayersAlive()

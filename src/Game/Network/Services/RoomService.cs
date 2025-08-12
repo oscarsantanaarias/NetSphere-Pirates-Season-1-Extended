@@ -64,10 +64,10 @@ namespace Netsphere.Network.Services
                 return;
             }
 
-            bool bugged_room_restriction = true; //Locks chaser rooms to no-intrusion by default when created
+          /*  bool bugged_room_restriction = true; //Locks chaser rooms to no-intrusion by default when created
             if (message.Room.MatchKey.GameRule != GameRule.Chaser)
                 bugged_room_restriction = message.Room.IsNoIntrusion;
-
+          */
             bool isbalanced = true;
             if (message.Room.IsFriendly)
                 isbalanced = false;
@@ -84,7 +84,7 @@ namespace Netsphere.Network.Services
                 MinLevel = message.Room.MinLevel,
                 MaxLevel = message.Room.MaxLevel,
                 ItemLimit = message.Room.EquipLimit,
-                IsNoIntrusion = bugged_room_restriction, //<--
+                //IsNoIntrusion = bugged_room_restriction, //<--
                 
                 ServerEndPoint = new IPEndPoint(IPAddress.Parse(Config.Instance.IP), Config.Instance.RelayListener.Port)
             }, RelayServer.Instance.P2PGroupManager.Create(true));
@@ -289,8 +289,8 @@ namespace Netsphere.Network.Services
                 plr.RoomInfo.State = plr.RoomInfo.Mode == PlayerGameMode.Normal
                     ? PlayerState.Alive
                     : PlayerState.Spectating;
-
-                plr.Room.BroadcastBriefing();
+                //Specific Implementation since in chaser mode it gets called when intrusion from inside the room
+                plr.Room.BroadcastBriefing(plr);
             }
         }
 
