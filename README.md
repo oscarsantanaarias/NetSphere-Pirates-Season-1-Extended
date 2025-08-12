@@ -5,6 +5,9 @@ This is an extended, bug fixed &amp; improved upon version of Wtfblub's Netspher
 
 Special thanks for VV, JuanCMC & Wizzardo for helping contribute to the codebase.
 
+Tutorials, Documentation & Resources are here within the project's wiki:
+[Netsphere Pirates S1 Extended Wiki](https://github.com/shanzenos/NetSphere-Pirates-Season-1-Extended/wiki)
+
 Requirements: 
 * [MySQL](https://www.mysql.com/) or SQLlite
 * [C++ 2015 Redist](https://www.microsoft.com/en-us/download/details.aspx?id=48145) for the game client
