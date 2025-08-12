@@ -599,7 +599,8 @@ internal class ChaserBriefing : Briefing
             w.Write(Unk16);
             w.Write(SwordRanking);
             w.Write(GunRanking);
-
+            w.Write(Unk19);
+            w.Write(Unk20);
             w.Write(Unk21);
         }
 
