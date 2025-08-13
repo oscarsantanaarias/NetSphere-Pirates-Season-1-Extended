@@ -257,7 +257,6 @@ namespace Netsphere.Game.GameRules
             }
 
             target.RoomInfo.State = PlayerState.Dead;
-            NextTarget(); // Try to select new bonus target
 
             // If no-one left alive, trigger chaser win
             if (!GetPlayersAlive().Any(plr => plr != Chaser))
