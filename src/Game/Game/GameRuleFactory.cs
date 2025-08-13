@@ -16,10 +16,10 @@ namespace Netsphere.Game
             Add(GameRule.Touchdown, room => new TouchdownGameRule(room));
             Add(GameRule.Deathmatch, room => new DeathmatchGameRule(room));
             Add(GameRule.Chaser, room => new ChaserGameRule(room));
-            //Add(GameRule.Arcade, room => new ArcadeGameRule(room));//placeholder, WIP
+            Add(GameRule.Arcade, room => new ArcadeGameRule(room));
             Add(GameRule.Practice, room => new PracticeGameRule(room));
             Add(GameRule.BattleRoyal, room => new BattleRoyalGameRule(room));
-            //Add(GameRule.Captain, room => new CaptainGameRule(room));  WIP
+            Add(GameRule.Captain, room => new CaptainGameRule(room));
         }
 
         public void Add(GameRule gameRule, Func<Room, GameRuleBase> gameRuleFactory)
