@@ -64,10 +64,6 @@ namespace Netsphere.Network.Services
                 return;
             }
 
-          /*  bool bugged_room_restriction = true; //Locks chaser rooms to no-intrusion by default when created
-            if (message.Room.MatchKey.GameRule != GameRule.Chaser)
-                bugged_room_restriction = message.Room.IsNoIntrusion;
-          */
             bool isbalanced = true;
             if (message.Room.IsFriendly)
                 isbalanced = false;
@@ -84,8 +80,8 @@ namespace Netsphere.Network.Services
                 MinLevel = message.Room.MinLevel,
                 MaxLevel = message.Room.MaxLevel,
                 ItemLimit = message.Room.EquipLimit,
-                //IsNoIntrusion = bugged_room_restriction, //<--
-                
+                IsNoIntrusion = message.Room.IsNoIntrusion,
+
                 ServerEndPoint = new IPEndPoint(IPAddress.Parse(Config.Instance.IP), Config.Instance.RelayListener.Port)
             }, RelayServer.Instance.P2PGroupManager.Create(true));
 
