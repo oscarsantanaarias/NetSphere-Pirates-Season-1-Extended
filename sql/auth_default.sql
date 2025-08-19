@@ -24,7 +24,7 @@ CREATE TABLE `accounts` (
 	CONSTRAINT `Username` UNIQUE( `Username` ) )
 COLLATE = utf8_bin
 ENGINE = InnoDB
-AUTO_INCREMENT = 5830;
+AUTO_INCREMENT = 5871;
 -- ---------------------------------------------------------
 
 
@@ -51,7 +51,7 @@ CREATE TABLE `login_history` (
 	PRIMARY KEY ( `Id` ) )
 COLLATE = utf8_bin
 ENGINE = InnoDB
-AUTO_INCREMENT = 39914;
+AUTO_INCREMENT = 40533;
 -- ---------------------------------------------------------
 
 
