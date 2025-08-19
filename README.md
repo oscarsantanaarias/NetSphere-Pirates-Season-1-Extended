@@ -3,7 +3,7 @@ Based on WTFBlub's original version of his season 1 Patch 26 Server Emulator: ht
 
 This is an extended, bug fixed &amp; improved upon version of Wtfblub's Netsphere Pirates S4 League season 1 server emulator I've been working on.
 
-Special thanks for VV, JuanCMC & Wizzardo for helping contribute to the codebase.
+Special thanks for VV, JuanCMC, Santana5322 & Wizzardo for helping contribute to the codebase.
 
 Tutorials, Documentation & Resources are here within the project's wiki:
 [Netsphere Pirates S1 Extended Wiki](https://github.com/shanzenos/NetSphere-Pirates-Season-1-Extended/wiki)
