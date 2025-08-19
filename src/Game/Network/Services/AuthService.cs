@@ -24,8 +24,9 @@ namespace Netsphere.Network.Services
 {
     internal class AuthService : ProudMessageHandler
     {
+        // Set Client Version here
         private static readonly Version s_version = new Version(0, 8, 31, 18574);
-        // ReSharper disable once InconsistentNaming NEW GAME VERSION HERE
+        // ReSharper disable once InconsistentNaming
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         [MessageHandler(typeof(CLoginReqMessage))]
