@@ -11,39 +11,6 @@
 -- ---------------------------------------------------------
 
 
--- CREATE TABLE "accounts" ---------------------------------
-CREATE TABLE `accounts` ( 
-	`Id` Int( 11 ) AUTO_INCREMENT NOT NULL,
-	`Username` VarChar( 40 ) COLLATE utf8_general_ci NOT NULL,
-	`Nickname` VarChar( 40 ) COLLATE utf8_general_ci NULL,
-	`Password` VarChar( 40 ) COLLATE utf8_general_ci NULL,
-	`Salt` VarChar( 40 ) COLLATE utf8_general_ci NULL,
-	`SecurityLevel` TinyInt( 3 ) UNSIGNED NOT NULL DEFAULT '0',
-	PRIMARY KEY ( `Id` ),
-	CONSTRAINT `Nickname` UNIQUE( `Nickname` ),
-	CONSTRAINT `Username` UNIQUE( `Username` ) )
-CHARACTER SET = utf8
-COLLATE = utf8_bin
-ENGINE = InnoDB
-AUTO_INCREMENT = 4;
--- ---------------------------------------------------------
-
-
--- CREATE TABLE "bans" -------------------------------------
-CREATE TABLE `bans` ( 
-	`Id` Int( 11 ) AUTO_INCREMENT NOT NULL,
-	`AccountId` Int( 11 ) NOT NULL,
-	`Date` BigInt( 20 ) NOT NULL DEFAULT '0',
-	`Duration` BigInt( 20 ) NULL,
-	`Reason` VarChar( 255 ) COLLATE utf8_general_ci NULL,
-	PRIMARY KEY ( `Id` ) )
-CHARACTER SET = utf8
-COLLATE = utf8_bin
-ENGINE = InnoDB
-AUTO_INCREMENT = 1;
--- ---------------------------------------------------------
-
-
 -- CREATE TABLE "license_rewards" --------------------------
 CREATE TABLE `license_rewards` ( 
 	`Id` TinyInt( 3 ) UNSIGNED NOT NULL DEFAULT '0',
@@ -52,34 +19,6 @@ CREATE TABLE `license_rewards` (
 	`Color` TinyInt( 3 ) UNSIGNED NOT NULL DEFAULT '0',
 	PRIMARY KEY ( `Id` ) )
 ENGINE = InnoDB;
--- ---------------------------------------------------------
-
-
--- CREATE TABLE "login_history" ----------------------------
-CREATE TABLE `login_history` ( 
-	`Id` Int( 11 ) AUTO_INCREMENT NOT NULL,
-	`AccountId` Int( 11 ) NOT NULL,
-	`Date` BigInt( 20 ) NOT NULL DEFAULT '0',
-	`IP` VarChar( 15 ) NULL,
-	PRIMARY KEY ( `Id` ) )
-CHARACTER SET = utf8
-COLLATE = utf8_bin
-ENGINE = InnoDB
-AUTO_INCREMENT = 6;
--- ---------------------------------------------------------
-
-
--- CREATE TABLE "nickname_history" -------------------------
-CREATE TABLE `nickname_history` ( 
-	`Id` Int( 11 ) AUTO_INCREMENT NOT NULL,
-	`AccountId` Int( 11 ) NOT NULL,
-	`Nickname` VarChar( 40 ) COLLATE utf8_general_ci NOT NULL,
-	`ExpireDate` BigInt( 20 ) NULL,
-	PRIMARY KEY ( `Id` ) )
-CHARACTER SET = utf8
-COLLATE = utf8_bin
-ENGINE = InnoDB
-AUTO_INCREMENT = 1;
 -- ---------------------------------------------------------
 
 
@@ -187,7 +126,6 @@ CREATE TABLE `players` (
 	`Coins2` Int( 11 ) NOT NULL DEFAULT '0',
 	`CurrentCharacterSlot` TinyInt( 3 ) UNSIGNED NOT NULL DEFAULT '0',
 	PRIMARY KEY ( `Id` ) )
-CHARACTER SET = utf8
 COLLATE = utf8_bin
 ENGINE = InnoDB;
 -- ---------------------------------------------------------
@@ -297,23 +235,7 @@ AUTO_INCREMENT = 1;
 -- ---------------------------------------------------------
 
 
--- Dump data of "accounts" ---------------------------------
--- ---------------------------------------------------------
-
-
--- Dump data of "bans" -------------------------------------
--- ---------------------------------------------------------
-
-
 -- Dump data of "license_rewards" --------------------------
--- ---------------------------------------------------------
-
-
--- Dump data of "login_history" ----------------------------
--- ---------------------------------------------------------
-
-
--- Dump data of "nickname_history" -------------------------
 -- ---------------------------------------------------------
 
 
@@ -2422,11 +2344,6 @@ INSERT INTO `shop_version`(`Id`,`Version`) VALUES ( '1', '201708291500' );
 -- ---------------------------------------------------------
 
 
--- CREATE INDEX "AccountId" --------------------------------
-CREATE INDEX `AccountId` USING BTREE ON `bans`( `AccountId` );
--- ---------------------------------------------------------
-
-
 -- CREATE INDEX "ShopItemInfoId" ---------------------------
 CREATE INDEX `ShopItemInfoId` USING BTREE ON `license_rewards`( `ShopItemInfoId` );
 -- ---------------------------------------------------------
@@ -2434,16 +2351,6 @@ CREATE INDEX `ShopItemInfoId` USING BTREE ON `license_rewards`( `ShopItemInfoId`
 
 -- CREATE INDEX "ShopPriceId" ------------------------------
 CREATE INDEX `ShopPriceId` USING BTREE ON `license_rewards`( `ShopPriceId` );
--- ---------------------------------------------------------
-
-
--- CREATE INDEX "AccountId" --------------------------------
-CREATE INDEX `AccountId` USING BTREE ON `login_history`( `AccountId` );
--- ---------------------------------------------------------
-
-
--- CREATE INDEX "AccountId" --------------------------------
-CREATE INDEX `AccountId` USING BTREE ON `nickname_history`( `AccountId` );
 -- ---------------------------------------------------------
 
 
@@ -2592,12 +2499,12 @@ CREATE INDEX `ShopPriceId` USING BTREE ON `start_items`( `ShopPriceId` );
 -- ---------------------------------------------------------
 
 
--- CREATE LINK "bans_ibfk_1" -------------------------------
-ALTER TABLE `bans`
-	ADD CONSTRAINT `bans_ibfk_1` FOREIGN KEY ( `AccountId` )
-	REFERENCES `accounts`( `Id` )
+-- CREATE LINK "license_rewards_ibfk_2" --------------------
+ALTER TABLE `license_rewards`
+	ADD CONSTRAINT `license_rewards_ibfk_2` FOREIGN KEY ( `ShopPriceId` )
+	REFERENCES `shop_prices`( `Id` )
 	ON DELETE Cascade
-	ON UPDATE Restrict;
+	ON UPDATE No Action;
 -- ---------------------------------------------------------
 
 
@@ -2610,30 +2517,12 @@ ALTER TABLE `license_rewards`
 -- ---------------------------------------------------------
 
 
--- CREATE LINK "license_rewards_ibfk_2" --------------------
-ALTER TABLE `license_rewards`
-	ADD CONSTRAINT `license_rewards_ibfk_2` FOREIGN KEY ( `ShopPriceId` )
-	REFERENCES `shop_prices`( `Id` )
-	ON DELETE Cascade
+-- CREATE LINK "player_characters_ibfk_9" ------------------
+ALTER TABLE `player_characters`
+	ADD CONSTRAINT `player_characters_ibfk_9` FOREIGN KEY ( `PantsId` )
+	REFERENCES `player_items`( `Id` )
+	ON DELETE Set NULL
 	ON UPDATE No Action;
--- ---------------------------------------------------------
-
-
--- CREATE LINK "login_history_ibfk_1" ----------------------
-ALTER TABLE `login_history`
-	ADD CONSTRAINT `login_history_ibfk_1` FOREIGN KEY ( `AccountId` )
-	REFERENCES `accounts`( `Id` )
-	ON DELETE Cascade
-	ON UPDATE Restrict;
--- ---------------------------------------------------------
-
-
--- CREATE LINK "nickname_history_ibfk_1" -------------------
-ALTER TABLE `nickname_history`
-	ADD CONSTRAINT `nickname_history_ibfk_1` FOREIGN KEY ( `AccountId` )
-	REFERENCES `accounts`( `Id` )
-	ON DELETE Cascade
-	ON UPDATE Restrict;
 -- ---------------------------------------------------------
 
 
@@ -2736,11 +2625,11 @@ ALTER TABLE `player_characters`
 -- ---------------------------------------------------------
 
 
--- CREATE LINK "player_characters_ibfk_9" ------------------
-ALTER TABLE `player_characters`
-	ADD CONSTRAINT `player_characters_ibfk_9` FOREIGN KEY ( `PantsId` )
-	REFERENCES `player_items`( `Id` )
-	ON DELETE Set NULL
+-- CREATE LINK "player_deny_ibfk_2" ------------------------
+ALTER TABLE `player_deny`
+	ADD CONSTRAINT `player_deny_ibfk_2` FOREIGN KEY ( `DenyPlayerId` )
+	REFERENCES `players`( `Id` )
+	ON DELETE Cascade
 	ON UPDATE No Action;
 -- ---------------------------------------------------------
 
@@ -2754,10 +2643,10 @@ ALTER TABLE `player_deny`
 -- ---------------------------------------------------------
 
 
--- CREATE LINK "player_deny_ibfk_2" ------------------------
-ALTER TABLE `player_deny`
-	ADD CONSTRAINT `player_deny_ibfk_2` FOREIGN KEY ( `DenyPlayerId` )
-	REFERENCES `players`( `Id` )
+-- CREATE LINK "player_items_ibfk_3" -----------------------
+ALTER TABLE `player_items`
+	ADD CONSTRAINT `player_items_ibfk_3` FOREIGN KEY ( `ShopPriceId` )
+	REFERENCES `shop_prices`( `Id` )
 	ON DELETE Cascade
 	ON UPDATE No Action;
 -- ---------------------------------------------------------
@@ -2781,15 +2670,6 @@ ALTER TABLE `player_items`
 -- ---------------------------------------------------------
 
 
--- CREATE LINK "player_items_ibfk_3" -----------------------
-ALTER TABLE `player_items`
-	ADD CONSTRAINT `player_items_ibfk_3` FOREIGN KEY ( `ShopPriceId` )
-	REFERENCES `shop_prices`( `Id` )
-	ON DELETE Cascade
-	ON UPDATE No Action;
--- ---------------------------------------------------------
-
-
 -- CREATE LINK "player_licenses_ibfk_1" --------------------
 ALTER TABLE `player_licenses`
 	ADD CONSTRAINT `player_licenses_ibfk_1` FOREIGN KEY ( `PlayerId` )
@@ -2799,18 +2679,18 @@ ALTER TABLE `player_licenses`
 -- ---------------------------------------------------------
 
 
--- CREATE LINK "player_mails_ibfk_1" -----------------------
+-- CREATE LINK "player_mails_ibfk_2" -----------------------
 ALTER TABLE `player_mails`
-	ADD CONSTRAINT `player_mails_ibfk_1` FOREIGN KEY ( `PlayerId` )
+	ADD CONSTRAINT `player_mails_ibfk_2` FOREIGN KEY ( `SenderPlayerId` )
 	REFERENCES `players`( `Id` )
 	ON DELETE Cascade
 	ON UPDATE No Action;
 -- ---------------------------------------------------------
 
 
--- CREATE LINK "player_mails_ibfk_2" -----------------------
+-- CREATE LINK "player_mails_ibfk_1" -----------------------
 ALTER TABLE `player_mails`
-	ADD CONSTRAINT `player_mails_ibfk_2` FOREIGN KEY ( `SenderPlayerId` )
+	ADD CONSTRAINT `player_mails_ibfk_1` FOREIGN KEY ( `PlayerId` )
 	REFERENCES `players`( `Id` )
 	ON DELETE Cascade
 	ON UPDATE No Action;
@@ -2835,6 +2715,15 @@ ALTER TABLE `shop_effects`
 -- ---------------------------------------------------------
 
 
+-- CREATE LINK "shop_iteminfos_ibfk_4" ---------------------
+ALTER TABLE `shop_iteminfos`
+	ADD CONSTRAINT `shop_iteminfos_ibfk_4` FOREIGN KEY ( `ShopItemId` )
+	REFERENCES `shop_items`( `Id` )
+	ON DELETE Cascade
+	ON UPDATE No Action;
+-- ---------------------------------------------------------
+
+
 -- CREATE LINK "shop_iteminfos_ibfk_2" ---------------------
 ALTER TABLE `shop_iteminfos`
 	ADD CONSTRAINT `shop_iteminfos_ibfk_2` FOREIGN KEY ( `PriceGroupId` )
@@ -2853,19 +2742,19 @@ ALTER TABLE `shop_iteminfos`
 -- ---------------------------------------------------------
 
 
--- CREATE LINK "shop_iteminfos_ibfk_4" ---------------------
-ALTER TABLE `shop_iteminfos`
-	ADD CONSTRAINT `shop_iteminfos_ibfk_4` FOREIGN KEY ( `ShopItemId` )
-	REFERENCES `shop_items`( `Id` )
+-- CREATE LINK "shop_prices_ibfk_1" ------------------------
+ALTER TABLE `shop_prices`
+	ADD CONSTRAINT `shop_prices_ibfk_1` FOREIGN KEY ( `PriceGroupId` )
+	REFERENCES `shop_price_groups`( `Id` )
 	ON DELETE Cascade
 	ON UPDATE No Action;
 -- ---------------------------------------------------------
 
 
--- CREATE LINK "shop_prices_ibfk_1" ------------------------
-ALTER TABLE `shop_prices`
-	ADD CONSTRAINT `shop_prices_ibfk_1` FOREIGN KEY ( `PriceGroupId` )
-	REFERENCES `shop_price_groups`( `Id` )
+-- CREATE LINK "start_items_ibfk_3" ------------------------
+ALTER TABLE `start_items`
+	ADD CONSTRAINT `start_items_ibfk_3` FOREIGN KEY ( `ShopEffectId` )
+	REFERENCES `shop_effects`( `Id` )
 	ON DELETE Cascade
 	ON UPDATE No Action;
 -- ---------------------------------------------------------
@@ -2884,15 +2773,6 @@ ALTER TABLE `start_items`
 ALTER TABLE `start_items`
 	ADD CONSTRAINT `start_items_ibfk_2` FOREIGN KEY ( `ShopPriceId` )
 	REFERENCES `shop_prices`( `Id` )
-	ON DELETE Cascade
-	ON UPDATE No Action;
--- ---------------------------------------------------------
-
-
--- CREATE LINK "start_items_ibfk_3" ------------------------
-ALTER TABLE `start_items`
-	ADD CONSTRAINT `start_items_ibfk_3` FOREIGN KEY ( `ShopEffectId` )
-	REFERENCES `shop_effects`( `Id` )
 	ON DELETE Cascade
 	ON UPDATE No Action;
 -- ---------------------------------------------------------
