@@ -474,6 +474,10 @@ namespace Netsphere.Network.Services
                 return;
             killer.RoomInfo.PeerId = message.Score.Killer;
 
+            //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
+            if (message.Score.Target.PeerId.Unk != 1)
+                return;
+
             room.GameRuleManager.GameRule.OnScoreKill(killer, null, plr, message.Score.Weapon);
         }
 
@@ -493,6 +497,10 @@ namespace Netsphere.Network.Services
             if (killer == null)
                 return;
             killer.RoomInfo.PeerId = message.Score.Killer;
+
+            //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
+            if (message.Score.Target.PeerId.Unk != 1)
+                return;
 
             room.GameRuleManager.GameRule.OnScoreKill(killer, assist, plr, message.Score.Weapon);
         }
@@ -583,6 +591,10 @@ namespace Netsphere.Network.Services
                 return;
             killer.RoomInfo.PeerId = message.Score.Killer;
 
+            //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
+            if (message.Score.Target.PeerId.Unk != 1)
+                return;
+
             room.GameRuleManager.GameRule.OnScoreTeamKill(killer, plr, message.Score.Weapon);
         }
 
@@ -601,6 +613,10 @@ namespace Netsphere.Network.Services
         {
             var plr = session.Player;
             plr.RoomInfo.PeerId = message.Id;
+
+            //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
+            if (message.Id.PeerId.Unk != 1)
+                return;
 
             var room = plr.Room;
             room.GameRuleManager.GameRule.OnScoreSuicide(plr);
