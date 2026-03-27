@@ -5,6 +5,14 @@ This is an extended, bug fixed &amp; improved upon version of Wtfblub's Netspher
 
 Special thanks for VV, JuanCMC, Santana5322 & Wizzardo for helping contribute to the codebase.
 
+Here's a quick overview of what's working, for a more detailed breakdown please refer to the issues tab.
+* Deathmatch, TouchDown, BattleRoyale & Chaser game modes are all working
+* General gameplay during matches working fine
+* Shop, inventory & character system
+* Room management & match settings working fine
+* Working P2P implemenation
+
+
 Tutorials, Documentation & Resources are here within the project's wiki:
 [Netsphere Pirates S1 Extended Wiki](https://github.com/shanzenos/NetSphere-Pirates-Season-1-Extended/wiki)
 
