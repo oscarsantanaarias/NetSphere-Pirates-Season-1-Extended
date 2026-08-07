@@ -49,6 +49,7 @@ namespace Netsphere.Network
                     .RegisterRule<CReadNoteReqMessage>(MustBeLoggedIn, MustBeInChannel)
                     .RegisterRule<CDeleteNoteReqMessage>(MustBeLoggedIn, MustBeInChannel)
                     .RegisterRule<CSendNoteReqMessage>(MustBeLoggedIn, MustBeInChannel)
+                    .RegisterRule<CFriendReqMessage>(MustBeLoggedIn, MustBeInChannel)
             };
             Instance = new ChatServer(config);
         }

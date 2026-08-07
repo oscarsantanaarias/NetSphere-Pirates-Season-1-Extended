@@ -30,6 +30,8 @@ namespace ProudNet
         public static byte[] ReadStruct(this BinaryReader @this)
         {
             var size = @this.ReadScalar();
+            if (size <= 0) return Array.Empty<byte>();
+            if (size > 0x10000) throw new Exception("Struct too large: " + size);
             return @this.ReadBytes(size);
         }
 
@@ -38,6 +40,7 @@ namespace ProudNet
             var stringType = @this.ReadByte();
             var size = @this.ReadScalar();
             if (size <= 0) return "";
+            if (size > 0x10000) throw new Exception("ProudString too large: " + size);
 
             switch (stringType)
             {
@@ -121,8 +124,20 @@ namespace ProudNet
 
         public static byte[] DecompressZLib(this byte[] @this)
         {
+            const int maxSize = 0x100000; // 1 MB cap (anti zlib-bomb)
             using (var zlib = new ZlibStream(new MemoryStream(@this), CompressionMode.Decompress))
-                return zlib.ReadToEnd();
+            using (var dst = new MemoryStream())
+            {
+                var buffer = new byte[8192];
+                int read;
+                while ((read = zlib.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    if (dst.Length + read > maxSize)
+                        throw new Exception("Decompressed message too large");
+                    dst.Write(buffer, 0, read);
+                }
+                return dst.ToArray();
+            }
         }
     }
 

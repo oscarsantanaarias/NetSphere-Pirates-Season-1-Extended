@@ -35,6 +35,11 @@ namespace ProudNet.Serialization.Serializers
                 emiter.LoadConstant(1);
                 emiter.BranchIfLess(emptyArray);
 
+                // if(length > 0x10000) treat as empty (anti-DoS: count drives the allocation)
+                emiter.LoadConstant(0x10000);
+                emiter.LoadLocal(length);
+                emiter.BranchIfLess(emptyArray);
+
                 // value = new [length]
                 emiter.LoadLocal(length);
                 emiter.NewArray(elementType);

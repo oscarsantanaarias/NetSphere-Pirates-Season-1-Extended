@@ -52,6 +52,8 @@ namespace Netsphere.Network
             {
                 if (relaySession.Player.Room != null)
                     relaySession.GameSession.Dispose();
+                else if (relaySession.Player.RelaySession == relaySession)
+                    relaySession.Player.RelaySession = null;
             }
             relaySession.GameSession = null;
             base.OnDisconnected(session);

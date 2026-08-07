@@ -64,28 +64,10 @@ namespace Netsphere.Network.Service
                 password = Hash.GetString<SHA1CryptoServiceProvider>(message.Password + "+" + account.Salt);
                 if (string.IsNullOrWhiteSpace(account.Password) || !account.Password.Equals(password, StringComparison.InvariantCultureIgnoreCase))
                 {
-                    if (Config.Instance.NoobMode)
-                    {
-                        // Noob Mode: Save new password
-                        var bytes = new byte[16];
-                        using (var rng = new RNGCryptoServiceProvider())
-                            rng.GetBytes(bytes);
-
-                        var salt = Hash.GetString<SHA1CryptoServiceProvider>(bytes);
-                        password = Hash.GetString<SHA1CryptoServiceProvider>(message.Password + "+" + salt);
-                        account.Password = password;
-                        account.Salt = salt;
-
-                        await db.UpdateAsync(account)
-                            .ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        Logger.Error($"Wrong login for {message.Username}");
-                        await session.SendAsync(new SAuthInEuAckMessage(AuthLoginResult.WrongIdorPw), SendOptions.Reliable)
-                            .ConfigureAwait(false);
-                        return;
-                    }
+                    Logger.Error($"Wrong login for {message.Username}");
+                    await session.SendAsync(new SAuthInEuAckMessage(AuthLoginResult.WrongIdorPw), SendOptions.Reliable)
+                        .ConfigureAwait(false);
+                    return;
                 }
 
                 var now = DateTimeOffset.Now.ToUnixTimeSeconds();

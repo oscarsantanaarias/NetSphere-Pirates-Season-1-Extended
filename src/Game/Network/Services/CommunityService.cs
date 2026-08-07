@@ -110,7 +110,16 @@ namespace Netsphere.Network.Services
         [MessageHandler(typeof(CFriendReqMessage))]  //friend reqs
         public void FriendRequest(ChatSession session, CFriendReqMessage message)
         {
+            if (session.Player == null)
+                return;
+
             var target = GameServer.Instance.PlayerManager[message.AccountId];
+            if (target == null)
+            {
+                session.SendAsync(new SFriendAckMessage(2));
+                return;
+            }
+
             var trg_settings = target.Settings;
 
             var name = nameof(UserDataDto.AllowFriendRequest);

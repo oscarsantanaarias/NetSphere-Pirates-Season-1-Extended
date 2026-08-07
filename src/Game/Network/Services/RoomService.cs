@@ -206,6 +206,12 @@ namespace Netsphere.Network.Services
         public void CMixChangeTeamReq(GameSession session, CMixChangeTeamReqMessage message)
         {
             var plr = session.Player;
+            if (plr?.Room == null || plr.Room.Master != plr)
+            {
+                session.SendAsync(new SMixChangeTeamFailAckMessage());
+                return;
+            }
+
             var plrToMove = plr.Room.Players.GetValueOrDefault(message.PlayerToMove);
             var plrToReplace = plr.Room.Players.GetValueOrDefault(message.PlayerToReplace);
             var fromTeam = plr.Room.TeamManager[message.FromTeam];
@@ -416,7 +422,7 @@ namespace Netsphere.Network.Services
             {
                 case RoomLeaveReason.Kicked:
                     // Only the master can kick people and kick is only allowed in the lobby
-                    if (room.Master != plr &&
+                    if (room.Master != plr ||
                         !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Waiting))
                         return;
                     break;
@@ -457,6 +463,8 @@ namespace Netsphere.Network.Services
         public void CSlaughterHealPointReqMessage(GameSession session, CSlaughterHealPointReqMessage message)
         {
             var plr = session.Player;
+            if (plr?.Room == null)
+                return;
             //Logger.ForAccount(plr.Account).Information($"Charser Unk {message.Unk}");
             var resp = new SSlaughterHealPointAckMessage { AccountId = plr.Account.Id, Unk = message.Unk };
             plr.Room.Broadcast(resp);
@@ -665,6 +673,9 @@ namespace Netsphere.Network.Services
         [MessageHandler(typeof(CMissionScoreReqMessage))]
         public void CMissionScoreReq(GameSession session, CMissionScoreReqMessage message)
         {
+            if (session.Player == null)
+                return;
+
             session.SendAsync(new SMissionScoreAckMessage { Unk1 = session.Player.Account.Id, Unk2 = message.Unk });
             session.SendAsync(new SMissionNotifyAckMessage { Unk = message.Unk });
         }
@@ -724,8 +735,8 @@ namespace Netsphere.Network.Services
         [MessageHandler(typeof(CArcadeStageReadyReqMessage))]
         public void CArcadeStageReadyReq(GameSession session, CArcadeStageReadyReqMessage message)
         {
-            //Logger.ForAccount(session.Player.Account)
-                //.Debug($"Arcade Stage Ready {message.Unk1} {message.Unk2}");
+            if (session.Player?.Room == null)
+                return;
 
             session.Player.Room.Broadcast(new SArcadeStageReadyAckMessage { AccountId = session.Player.Account.Id });
         }
@@ -734,7 +745,9 @@ namespace Netsphere.Network.Services
         public void CArcadeStageSelectReq(GameSession session, CArcadeStageSelectReqMessage message)
         {
             var plr = session.Player;
-            var room = plr.Room;
+            var room = plr?.Room;
+            if (room == null)
+                return;
 
             if (room.Options.MatchKey.GameRule != GameRule.Arcade)
                 return;
@@ -750,7 +763,9 @@ namespace Netsphere.Network.Services
         public void CArcadeLoadingSucceesReq(GameSession session, CArcadeLoadingSucceesReqMessage message)
         {
             var plr = session.Player;
-            var room = plr.Room;
+            var room = plr?.Room;
+            if (room == null)
+                return;
 
             var target = room.Players.GetValueOrDefault(plr.Account.Id);
             if (target == null)

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using BlubLib.Threading.Tasks;
 using ExpressMapper.Extensions;
 using Netsphere.Game;
+using Netsphere.Network;
 using Netsphere.Network.Data.Game;
 using Netsphere.Network.Message.Game;
 using ProudNet;
@@ -69,6 +70,9 @@ namespace Netsphere
         {
             if (room.Players.Count > 0)
                 throw new RoomException("Players are still in this room");
+
+            if (room.Group != null)
+                RelayServer.Instance.P2PGroupManager.Remove(room.Group);
 
             _rooms.Remove(room.Id);
             Channel.Broadcast(new SDisposeGameRoomAckMessage(room.Id));

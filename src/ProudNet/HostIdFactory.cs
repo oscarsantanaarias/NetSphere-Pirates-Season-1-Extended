@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Linq;
 using System.Threading;
 
 namespace ProudNet
@@ -22,7 +23,8 @@ namespace ProudNet
 
         public void Free(uint hostId)
         {
-            _pool.Push(hostId);
+            if (!_pool.Contains(hostId))
+                _pool.Push(hostId);
         }
     }
 }
