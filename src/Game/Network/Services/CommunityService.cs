@@ -107,6 +107,19 @@ namespace Netsphere.Network.Services
                     break;
             }
         }
+        private static void SendFriendList(Player p)
+        {
+            if (p?.ChatSession == null)
+                return;
+            var friends = p.Friends.Select(kv => new FriendDto
+            {
+                AccountId = kv.Key,
+                Nickname = GameServer.Instance.PlayerManager[kv.Key]?.Account?.Nickname ?? "",
+                State = kv.Value
+            }).ToArray();
+            p.ChatSession.SendAsync(new SFriendListAckMessage(friends));
+        }
+
         [MessageHandler(typeof(CFriendReqMessage))]  //friend reqs
         public void FriendRequest(ChatSession session, CFriendReqMessage message)
         {
@@ -188,6 +201,10 @@ namespace Netsphere.Network.Services
                     });
                     break;
             }
+
+            SendFriendList(me);
+            if (target != null)
+                SendFriendList(target);
         }
     }
 }
