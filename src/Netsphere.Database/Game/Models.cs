@@ -30,6 +30,7 @@ namespace Netsphere.Database.Game
 
         public IList<PlayerCharacterDto> Characters { get; set; } = new List<PlayerCharacterDto>();
         public IList<PlayerDenyDto> Ignores { get; set; } = new List<PlayerDenyDto>();
+        public IList<PlayerFriendDto> Friends { get; set; } = new List<PlayerFriendDto>();
         public IList<PlayerItemDto> Items { get; set; } = new List<PlayerItemDto>();
         public IList<PlayerLicenseDto> Licenses { get; set; } = new List<PlayerLicenseDto>();
         public IList<PlayerMailDto> Inbox { get; set; } = new List<PlayerMailDto>();
@@ -76,6 +77,21 @@ namespace Netsphere.Database.Game
         public PlayerDto Player { get; set; }
 
         public int DenyPlayerId { get; set; }
+    }
+
+    [Table("player_friends")]
+    public class PlayerFriendDto
+    {
+        [Key]
+        public int Id { get; set; }
+
+        [ForeignKey(nameof(Player))]
+        public int PlayerId { get; set; }
+        public PlayerDto Player { get; set; }
+
+        public int FriendId { get; set; }
+        public int PlayerState { get; set; }
+        public int FriendState { get; set; }
     }
 
     [Table("player_items")]

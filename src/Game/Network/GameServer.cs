@@ -158,7 +158,9 @@ namespace Netsphere.Network
                 .Add(new ReloadCommand())
                 .Add(new GameCommands())
                 .Add(new InventoryCommands())
-                .Add(new GMCommands());
+                .Add(new GMCommands())
+                .Add(new FriendProbeCommand())
+                .Add(new CombiProbeCommand());
 
             PlayerManager = new PlayerManager();
             ResourceCache = new ResourceCache();

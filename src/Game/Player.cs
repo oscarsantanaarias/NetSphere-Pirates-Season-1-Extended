@@ -157,6 +157,21 @@ namespace Netsphere
             CharacterManager = new CharacterManager(this, dto);
 
             RoomInfo = new PlayerRoomInfo();
+
+            using (var db = GameDatabase.Open())
+            {
+                var mine = db.Find<Netsphere.Database.Game.PlayerFriendDto>(s => s
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerFriendDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id }));
+                foreach (var f in mine)
+                    Friends[(ulong)f.FriendId] = (uint)f.PlayerState;
+
+                var incoming = db.Find<Netsphere.Database.Game.PlayerFriendDto>(s => s
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerFriendDto.FriendId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id }));
+                foreach (var f in incoming)
+                    Friends[(ulong)f.PlayerId] = (uint)f.FriendState;
+            }
         }
 
         /// <summary>
