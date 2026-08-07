@@ -134,6 +134,7 @@ namespace Netsphere.Network
                     .RegisterRule<CClubInfoReqMessage>(MustBeLoggedIn, MustBeInChannel)
                     .RegisterRule<CLeavePlayerRequestReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom)
                     .RegisterRule<CMixChangeTeamReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom)
+                    .RegisterRule<CAutoMixingTeamReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom)
                     .RegisterRule<CSlaughterHealPointReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom)
                     .RegisterRule<CMissionScoreReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom)
                     .RegisterRule<CArcadeStageReadyReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom)

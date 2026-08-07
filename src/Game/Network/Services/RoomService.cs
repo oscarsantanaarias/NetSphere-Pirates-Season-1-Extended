@@ -202,6 +202,35 @@ namespace Netsphere.Network.Services
             }
         }
 
+        [MessageHandler(typeof(CAutoMixingTeamReqMessage))]
+        public void CAutoMixingTeamReq(GameSession session, CAutoMixingTeamReqMessage message)
+        {
+            var plr = session.Player;
+            var room = plr?.Room;
+            if (room == null || room.Master != plr ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Waiting))
+                return;
+
+            var teams = room.TeamManager.Keys.Where(t => t != Team.Neutral).ToArray();
+            if (teams.Length == 0)
+                return;
+
+            var rng = new System.Random();
+            foreach (var occupant in room.TeamManager.Players.ToArray())
+            {
+                var pickedTeam = teams[rng.Next(teams.Length)];
+                try
+                {
+                    room.TeamManager.ChangeTeam(occupant, pickedTeam);
+                }
+                catch (RoomException)
+                {
+                }
+            }
+
+            room.BroadcastBriefing();
+        }
+
         [MessageHandler(typeof(CMixChangeTeamReqMessage))]
         public void CMixChangeTeamReq(GameSession session, CMixChangeTeamReqMessage message)
         {
