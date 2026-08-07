@@ -96,6 +96,7 @@ namespace Netsphere
                     return;
                 _pen = value;
                 NeedsToSave = true;
+                Session?.SendAsync(new SRefreshCashInfoAckMessage { PEN = _pen, AP = _ap });
             }
         }
         public uint AP
@@ -107,6 +108,7 @@ namespace Netsphere
                     return;
                 _ap = value;
                 NeedsToSave = true;
+                Session?.SendAsync(new SRefreshCashInfoAckMessage { PEN = _pen, AP = _ap });
             }
         }
         public uint Coins1
