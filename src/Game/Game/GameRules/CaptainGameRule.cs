@@ -1,8 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using Netsphere.Game.Systems;
 using Netsphere.Network.Data.GameRule;
 using Netsphere.Network.Message.GameRule;
@@ -37,7 +36,7 @@ namespace Netsphere.Game.GameRules
             StateMachine.Configure(GameRuleState.Neutral)
                 .SubstateOf(GameRuleState.Playing)
                 .Permit(GameRuleStateTrigger.StartResult, GameRuleState.EnteringResult)
-                .OnEntry(_captainHelper.Reset);
+                .OnEntry(StartMatch);
 
             StateMachine.Configure(GameRuleState.EnteringResult)
                 .SubstateOf(GameRuleState.Playing)
@@ -45,13 +44,11 @@ namespace Netsphere.Game.GameRules
 
             StateMachine.Configure(GameRuleState.Result)
                 .SubstateOf(GameRuleState.Playing)
-                .Permit(GameRuleStateTrigger.EndGame, GameRuleState.Waiting)
-                .OnEntry(UpdatePlayerStats);
+                .Permit(GameRuleStateTrigger.EndGame, GameRuleState.Waiting);
         }
 
         public override void Initialize()
         {
-
             var teamMgr = Room.TeamManager;
             teamMgr.Add(Team.Alpha, (uint)(Room.Options.MatchKey.PlayerLimit / 2), (uint)(Room.Options.MatchKey.SpectatorLimit / 2));
             teamMgr.Add(Team.Beta, (uint)(Room.Options.MatchKey.PlayerLimit / 2), (uint)(Room.Options.MatchKey.SpectatorLimit / 2));
@@ -68,23 +65,20 @@ namespace Netsphere.Game.GameRules
             if (StateMachine.IsInState(GameRuleState.Playing) &&
                 !StateMachine.IsInState(GameRuleState.EnteringResult) &&
                 !StateMachine.IsInState(GameRuleState.Result) &&
-                RoundTime >= TimeSpan.FromSeconds(5)) // Let the round run for at least 5 seconds - Fixes StartResult trigger on game start(race condition)
+                RoundTime >= TimeSpan.FromSeconds(5))
             {
-                // Still have enough players?
                 var min = teamMgr.Values.Min(team =>
-                team.Values.Count(plr =>
-                    plr.RoomInfo.State != PlayerState.Lobby &&
-                    plr.RoomInfo.State != PlayerState.Spectating));
+                    team.Values.Count(plr =>
+                        plr.RoomInfo.State != PlayerState.Lobby &&
+                        plr.RoomInfo.State != PlayerState.Spectating));
                 if (min == 0)
                     StateMachine.Fire(GameRuleStateTrigger.StartResult);
 
                 if (StateMachine.IsInState(GameRuleState.Neutral))
                 {
-                    // Did we reach ScoreLimit?
                     if (teamMgr.Values.Any(team => team.Score >= Room.Options.ScoreLimit))
                         StateMachine.Fire(GameRuleStateTrigger.StartResult);
 
-                    // Did we reach round limit?
                     if (_currentRound >= Room.Options.TimeLimit.Minutes)
                         StateMachine.Fire(GameRuleStateTrigger.StartResult);
 
@@ -125,10 +119,7 @@ namespace Netsphere.Game.GameRules
 
         public override void PlayerLeft(object room, RoomPlayerEventArgs e)
         {
-            if (StateMachine.IsInState(GameRuleState.FirstHalf))
-                //e.Player.CaptainMode.Loss++;
-
-                base.PlayerLeft(room, e);
+            base.PlayerLeft(room, e);
         }
 
         public override PlayerRecord GetPlayerRecord(Player plr)
@@ -138,46 +129,42 @@ namespace Netsphere.Game.GameRules
 
         public override void OnScoreTeamKill(Player killer, Player target, AttackAttribute attackAttribute)
         {
-            //if (_captainHelper.Dead(target) && _captainHelper.Any())
-            //    SubRoundEnd();
-
-            GetRecord(target).Deaths++;
-
             base.OnScoreTeamKill(killer, target, attackAttribute);
+            _captainHelper.Dead(target);
         }
 
         public override void OnScoreKill(Player killer, Player assist, Player target, AttackAttribute attackAttribute)
         {
+            base.OnScoreKill(killer, assist, target, attackAttribute);
+
             if (_captainHelper.Dead(target))
             {
-                //if (_captainHelper.Any())
-                //    SubRoundEnd();
+                var killerRecord = GetRecord(killer);
+                killerRecord.KillCaptains++;
+                if (killerRecord.Kills > 0)
+                    killerRecord.Kills--;
 
-                GetRecord(killer).KillCaptains++;
-                //killer.CaptainMode.CPTKilled++;
                 if (assist != null)
-                    GetRecord(assist).KillAssistCaptains++;
+                {
+                    var assistRecord = GetRecord(assist);
+                    assistRecord.KillAssistCaptains++;
+                    if (assistRecord.KillAssists > 0)
+                        assistRecord.KillAssists--;
+                }
             }
-            else
-            {
-                GetRecord(killer).Kills++;
-                if (assist != null)
-                    GetRecord(assist).KillAssists++;
-            }
+        }
 
-            GetRecord(target).Deaths++;
-
-            base.OnScoreKill(killer, null, target, attackAttribute);
+        public override void OnScoreHeal(Player plr)
+        {
+            base.OnScoreHeal(plr);
+            GetRecord(plr).Heal++;
         }
 
         public override void OnScoreSuicide(Player plr)
         {
-            //if (_captainHelper.Dead(plr) && _captainHelper.Any())
-            //    SubRoundEnd();
-
-            GetPlayerRecord(plr).Suicides++;
-
             base.OnScoreSuicide(plr);
+            _captainHelper.Dead(plr);
+            GetRecord(plr).Suicides++;
         }
 
         private bool CanStartGame()
@@ -186,69 +173,59 @@ namespace Netsphere.Game.GameRules
                 return false;
 
             var teams = Room.TeamManager.Values.ToArray();
-            if (teams.Any(team => team.Count == 0)) // Do we have enough players?
+            if (teams.Any(team => team.Count == 0))
                 return false;
 
-            // Is atleast one player per team ready?
             return teams.All(team => team.Players.Any(plr => plr.RoomInfo.IsReady || Room.Master == plr));
+        }
+
+        private void StartMatch()
+        {
+            _currentRound = 0;
+            _subRoundTime = TimeSpan.Zero;
+            _nextRoundTime = TimeSpan.Zero;
+            _waitingNextRound = false;
+            _captainHelper.Reset();
         }
 
         private void SubRoundEnd()
         {
             var teamwin = _captainHelper.TeamWin();
             _currentRound++;
+            _subRoundTime = TimeSpan.Zero;
+
+            if (teamwin != null && teamwin.Team != Team.Neutral)
+            {
+                teamwin.Score++;
+                foreach (var plr in teamwin.PlayersPlaying)
+                    GetRecord(plr).WinRound++;
+
+                Room.Broadcast(new SCaptainSubRoundEndReasonAckMessage
+                {
+                    Unk1 = 0,
+                    Unk2 = (byte)(teamwin.Team == Team.Alpha ? 1 : 2)
+                });
+
+                Room.BroadcastBriefing();
+            }
 
             var teamMgr = Room.TeamManager;
-
-            // Did we reach ScoreLimit or Round Limit?
             if (_currentRound >= Room.Options.TimeLimit.Minutes
                 || teamMgr.Values.Any(team => team.Score >= Room.Options.ScoreLimit))
             {
                 StateMachine.Fire(GameRuleStateTrigger.StartResult);
-            }
-            else
-            {
-                Room.Broadcast(
-                    new SCaptainSubRoundEndReasonAckMessage
-                    {
-                        Unk1 = 0,
-                        Unk2 = (byte)(teamwin.Team == Team.Alpha ? 1 : 2)
-                    });
-                Room.Broadcast(
-                    new SEventMessageAckMessage(GameEventMessage.NextRoundIn, (ulong)s_captainNextroundTime.TotalMilliseconds, 0, 0, ""));
-
-                _nextRoundTime = TimeSpan.Zero;
-                _waitingNextRound = true;
+                return;
             }
 
-            teamwin.Players.First().RoomInfo.Team.Score++;
+            Room.Broadcast(new SEventMessageAckMessage(GameEventMessage.NextRoundIn, (ulong)s_captainNextroundTime.TotalMilliseconds, 0, 0, ""));
 
-            _subRoundTime = TimeSpan.Zero;
+            _nextRoundTime = TimeSpan.Zero;
+            _waitingNextRound = true;
         }
 
         private static CaptainPlayerRecord GetRecord(Player plr)
         {
             return (CaptainPlayerRecord)plr.RoomInfo.Stats;
-        }
-
-        private void UpdatePlayerStats()
-        {
-            var WinTeam = Room
-                .TeamManager
-                .PlayersPlaying
-                .Aggregate(
-                    (highestTeam, player) =>
-                    (highestTeam == null || player.RoomInfo.Team.Score > highestTeam.RoomInfo.Team.Score) ?
-                    player : highestTeam).RoomInfo.Team;
-
-            /*foreach (var plr in Room.TeamManager.PlayersPlaying)
-            {
-                if (plr.RoomInfo.Team == WinTeam)
-                    plr.CaptainMode.Won++;
-                else
-                    plr.CaptainMode.Loss++;
-            }
-        }*/
         }
 
         internal class CaptainHelper
@@ -273,13 +250,13 @@ namespace Netsphere.Game.GameRules
 
             public void Reset()
             {
-                _alpha = from plr in Room.TeamManager.PlayersPlaying
-                         where plr.RoomInfo.Team.Team == Team.Alpha
-                         select plr;
+                _alpha = (from plr in Room.TeamManager.PlayersPlaying
+                          where plr.RoomInfo.Team.Team == Team.Alpha
+                          select plr).ToArray();
 
-                _beta = from plr in Room.TeamManager.PlayersPlaying
-                        where plr.RoomInfo.Team.Team == Team.Beta
-                        select plr;
+                _beta = (from plr in Room.TeamManager.PlayersPlaying
+                         where plr.RoomInfo.Team.Team == Team.Beta
+                         select plr).ToArray();
 
                 float max = (_alpha.Count() > _beta.Count()) ? _alpha.Count() : _beta.Count();
 
@@ -290,10 +267,7 @@ namespace Netsphere.Game.GameRules
                               .ToArray();
 
                 foreach (var plr in Room.TeamManager.PlayersPlaying)
-                {
                     plr.RoomInfo.State = PlayerState.Alive;
-                    //plr.CaptainMode.CPTCount++;
-                }
 
                 Room.Broadcast(new SCaptainLifeRoundSetUpAckMessage { Players = players });
                 Room.Broadcast(new SEventMessageAckMessage(GameEventMessage.ResetRound, 0, 0, 0, ""));
@@ -301,37 +275,26 @@ namespace Netsphere.Game.GameRules
 
             public bool Dead(Player target)
             {
+                if (target == null || target.RoomInfo.Team == null)
+                    return false;
+
                 if (target.RoomInfo.Team.Team == Team.Alpha)
                 {
-                    var isCaptain = (from plr in _alpha
-                                     where plr == target
-                                     select plr).Any();
-
-                    _alpha = from plr in _alpha
-                             where plr != target
-                             select plr;
-
-                    target.Room.Broadcast(new SCurrentRoundInformationAckMessage { Unk1 = _alpha.Count(), Unk2 = _beta.Count() });
-
+                    var isCaptain = _alpha.Any(plr => plr == target);
+                    _alpha = _alpha.Where(plr => plr != target).ToArray();
+                    Room.Broadcast(new SCurrentRoundInformationAckMessage { Unk1 = _alpha.Count(), Unk2 = _beta.Count() });
                     return isCaptain;
                 }
 
                 if (target.RoomInfo.Team.Team == Team.Beta)
                 {
-                    var isCaptain = (from plr in _beta
-                                     where plr == target
-                                     select plr).Any();
-
-                    _beta = from plr in _beta
-                            where plr != target
-                            select plr;
-
-                    target.Room.Broadcast(new SCurrentRoundInformationAckMessage { Unk1 = _alpha.Count(), Unk2 = _beta.Count() });
-
+                    var isCaptain = _beta.Any(plr => plr == target);
+                    _beta = _beta.Where(plr => plr != target).ToArray();
+                    Room.Broadcast(new SCurrentRoundInformationAckMessage { Unk1 = _alpha.Count(), Unk2 = _beta.Count() });
                     return isCaptain;
                 }
 
-                return false;// we need this?
+                return false;
             }
 
             public bool Any()
@@ -342,36 +305,36 @@ namespace Netsphere.Game.GameRules
             public PlayerTeam TeamWin()
             {
                 if (!_alpha.Any())
-                    return Room.TeamManager.GetValueOrDefault(Team.Beta);
+                    return Room.TeamManager[Team.Beta];
 
                 if (!_beta.Any())
-                    return Room.TeamManager.GetValueOrDefault(Team.Alpha);
+                    return Room.TeamManager[Team.Alpha];
 
-                return (_alpha.Count() > _beta.Count()) ?
-                    Room.TeamManager.GetValueOrDefault(Team.Alpha) :
-                    Room.TeamManager.GetValueOrDefault(Team.Beta);
+                return (_alpha.Count() > _beta.Count())
+                    ? Room.TeamManager[Team.Alpha]
+                    : Room.TeamManager[Team.Beta];
             }
 
             public void Update(TimeSpan delta)
             {
-                _alpha = from plr in Room.TeamManager.PlayersPlaying
-                         join oplr in _alpha on plr equals oplr
-                         select plr;
+                _alpha = (from plr in Room.TeamManager.PlayersPlaying
+                          join oplr in _alpha on plr equals oplr
+                          select plr).ToArray();
 
-                _beta = from plr in Room.TeamManager.PlayersPlaying
-                        join oplr in _beta on plr equals oplr
-                        select plr;
+                _beta = (from plr in Room.TeamManager.PlayersPlaying
+                         join oplr in _beta on plr equals oplr
+                         select plr).ToArray();
             }
         }
 
         internal class CaptainBriefing : Briefing
         {
-            int Unk1;
-            int Unk2;
-            int Unk3;
-            int Unk4;
-            int Unk5;
-            int Unk6;
+            private int Unk1;
+            private int Unk2;
+            private int Unk3;
+            private int Unk4;
+            private int Unk5;
+            private int Unk6;
 
             public CaptainBriefing(GameRuleBase RuleBase)
                 : base(RuleBase)
@@ -388,8 +351,6 @@ namespace Netsphere.Game.GameRules
             {
                 base.WriteData(w, isResult);
 
-                var gameRule = (CaptainGameRule)GameRule;
-
                 w.Write(Unk1);
                 w.Write(Unk2);
                 w.Write(Unk3);
@@ -401,7 +362,15 @@ namespace Netsphere.Game.GameRules
 
         internal class CaptainPlayerRecord : PlayerRecord
         {
-            public override uint TotalScore => (5 * (WinRound + KillCaptains)) + (2 * Kills) + KillAssists + Heal - Suicides;
+            public override uint TotalScore
+            {
+                get
+                {
+                    var earned = (5 * (WinRound + KillCaptains)) + (2 * Kills) + KillAssists + Heal;
+                    return Suicides >= earned ? 0 : earned - Suicides;
+                }
+            }
+
             public uint KillCaptains { get; set; }
             public uint KillAssistCaptains { get; set; }
             public uint WinRound { get; set; }
@@ -423,7 +392,7 @@ namespace Netsphere.Game.GameRules
                 w.Write(KillAssists);
                 w.Write(Heal);
                 w.Write(WinRound);
-                w.Write(Domination); // Here go domination score?
+                w.Write(Domination);
             }
 
             public override void Reset()
@@ -431,18 +400,10 @@ namespace Netsphere.Game.GameRules
                 base.Reset();
                 KillCaptains = 0;
                 KillAssistCaptains = 0;
+                WinRound = 0;
                 Heal = 0;
+                Domination = 0;
             }
-
-            /*public override uint GetExpGain(out uint bonusExp)
-            {
-                return GetExpGain(Config.Instance.Game.CaptainExpRates, out bonusExp);
-            }
-
-            public override uint GetPenGain(out uint bonusPen)
-            {
-                return GetPenGain(Config.Instance.Game.CaptainExpRates, out bonusPen);
-            }*/
         }
     }
 }

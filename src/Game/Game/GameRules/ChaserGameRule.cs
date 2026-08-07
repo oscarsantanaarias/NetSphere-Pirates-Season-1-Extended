@@ -22,9 +22,7 @@ namespace Netsphere.Game.GameRules
 
         private bool _waitingNextChaser;
         private bool _roundComplete;
-        private Player _bonus; // Bonus target player
-
-        private bool _scoringDisabled = false;
+        private Player _bonus;
 
         private Player LastChaser;
 
@@ -111,35 +109,19 @@ namespace Netsphere.Game.GameRules
 
         public override void PlayerLeft(object room, RoomPlayerEventArgs e)
         {
-            //if target is in the list of players alive remove it
-            var targetPlayersAlive = GetPlayersAlive().ToList();
-            foreach (var target in targetPlayersAlive)
-            {
-                if (target == e.Player)
-                {
-                    targetPlayersAlive.Remove(e.Player);
-                }
-            }
-
-            if (StateMachine.IsInState(GameRuleState.Neutral) || StateMachine.IsInState(GameRuleState.Playing))
+            if (StateMachine.IsInState(GameRuleState.Playing))
             {
                 base.PlayerLeft(room, e);
-                //If chaser is leaving player, set chaser to null & set chaser lose
+
                 if (e.Player == Chaser)
                 {
                     Chaser = null;
                     ChaserLose();
                 }
-
-                else if (e.Player != Chaser)
+                else if (e.Player == Bonus)
                 {
-                    //If player leaving is the target/bonus, set null & fire off next target
-                    if (e.Player == Bonus)
-                    {
-                        Bonus = null;
-                        NextTarget();
-
-                    }
+                    Bonus = null;
+                    NextTarget();
                 }
             }
         }
@@ -181,15 +163,11 @@ namespace Netsphere.Game.GameRules
 
                 if (_waitingNextChaser)
                 {
-                    // Disable scoring only during intermission
-                    _scoringDisabled = true;
                     _nextChaserTimer += delta;
 
                     if (_nextChaserTimer >= s_nextChaserWaitTime)
                     {
                         NextChaser();
-                        // Re-enable scoring after chaser change
-                        _scoringDisabled = false;
                     }
                 }
                 else
@@ -244,114 +222,86 @@ namespace Netsphere.Game.GameRules
 
         public override void OnScoreKill(Player killer, Player assist, Player target, AttackAttribute attackAttribute)
         {
-            // Prevent scoring during intermission or state transitions
-            if (_scoringDisabled || !StateMachine.IsInState(GameRuleState.Playing))
-            {
+            if (_waitingNextChaser || !StateMachine.IsInState(GameRuleState.Playing))
                 return;
-            }
 
-            var stats = GetRecord(killer);
-            stats.Kills++;
-
-            if (killer == Chaser && target == Bonus)
-            {
-                stats.BonusKills++; // Award bonus points to the chaser for killing the bonus target
-                Bonus = GetBonus(); // Assign a new bonus target if the previous one is killed
-            }
-
-            target.RoomInfo.State = PlayerState.Dead;
-
-            // If no-one left alive, trigger chaser win
-            if (!GetPlayersAlive().Any(plr => plr != Chaser))
-            {
-                ChaserWin();
-            }
-
-            // Chaser Loses if they become the target
-            if (Chaser == target)
-            {
-                ChaserLose();
-            }
+            if (target == null)
+                return;
 
             base.OnScoreKill(killer, null, target, attackAttribute);
 
-            target.RoomInfo.State = PlayerState.Dead;
+            var stats = GetRecord(killer);
 
             if (killer == Chaser && target == Bonus)
             {
-                stats.BonusKills++; // Award bonus points to the chaser for killing the bonus target
-
-                NextTarget(); // Try to select new bonus target // Assign a new bonus target if the previous one is killed
+                if (stats.Kills > 0)
+                    stats.Kills--;
+                stats.BonusKills++;
             }
 
+            if (target != Chaser)
+                target.RoomInfo.State = PlayerState.Dead;
+
+            if (!GetPlayersAlive().Any())
+                ChaserWin();
+
+            if (Chaser == target)
+                ChaserLose();
+
+            if (Bonus == target)
+                Bonus = null;
+
+            NextTarget();
         }
-
-
-        // Log scores for players
-        private void LogScore(Player player, string phase)
-        {
-            var record = GetRecord(player);
-            Console.WriteLine($"[{phase}] Player: {player.Account.Id}, Kills: {record.Kills}, BonusKills: {record.BonusKills}, TotalScore: {record.TotalScore}");
-        }
-
 
         public override void OnScoreSuicide(Player plr)
         {
+            if (_waitingNextChaser || !StateMachine.IsInState(GameRuleState.Playing))
+                return;
+
+            base.OnScoreSuicide(plr);
+
             if (Chaser == plr)
             {
                 ChaserLose();
             }
-
-            plr.RoomInfo.State = PlayerState.Dead;
-
-            var targetPlayersAlive = GetPlayersAlive().ToList();
-            targetPlayersAlive.Remove(plr);
-
-            List<Player> alivePlayersExceptChaser = new List<Player>();
-
-            foreach (var player in GetPlayersAlive())
+            else if (Chaser != null)
             {
-                if (player != Chaser)
-                {
-                    alivePlayersExceptChaser.Add(player);
-                }
+                var chaserStats = GetRecord(Chaser);
+                if (plr == Bonus)
+                    chaserStats.BonusKills++;
+                else
+                    chaserStats.Kills++;
             }
 
-            List<ulong> playerIds = new List<ulong>();
+            if (plr != Chaser)
+                plr.RoomInfo.State = PlayerState.Dead;
 
-            foreach (var player in alivePlayersExceptChaser)
-            {
-                playerIds.Add((ulong)player.Account.Id);
-            }
+            if (!GetPlayersAlive().Any())
+                ChaserWin();
+
+            if (Bonus == plr)
+                Bonus = null;
 
             NextTarget();
-
-            base.OnScoreSuicide(plr);
         }
 
         public void NextTarget()
         {
             if (!StateMachine.IsInState(GameRuleState.Playing))
                 return;
-            // WIP
-            // Try to select a new bonus target from alive non-chaser players
+
+            if (Bonus != null && Bonus != Chaser && Bonus.RoomInfo.State == PlayerState.Alive)
+                return;
+
             Bonus = GetBonus();
-
-
-            if ( Bonus != null) {
-                Room.Broadcast(new SChangeBonusTargetAckMessage(Bonus.Account.Id));// Notify players of new bonus target
-            }
-            return;
         }
 
         private Player GetBonus()
         {
-            // Return the player with the highest total score that isn't the chaser
-            var scoreList = GetPlayersAlive()
-                .OrderByDescending(plr => plr.RoomInfo.Stats.TotalScore);
-
-            return scoreList.FirstOrDefault();
-
+            return GetPlayersAlive()
+                .OrderBy(plr => plr.RoomInfo.Stats.TotalScore)
+                .FirstOrDefault();
         }
 
 
@@ -433,7 +383,7 @@ namespace Netsphere.Game.GameRules
 
         public void ChaserWin()
         {
-            if (_waitingNextChaser)
+            if (_waitingNextChaser || Chaser == null)
                 return;
 
             GetRecord(Chaser).Wins++;
