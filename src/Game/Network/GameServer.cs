@@ -407,7 +407,7 @@ namespace Netsphere.Network
                 });
 
             Mapper.Register<Player, RoomPlayerDto>()
-                .Member(dest => dest.AccountId, src => src.Account.Id)
+                .Function(dest => dest.AccountId, src => (ulong)src.RoomInfo.PeerId != 0 ? (ulong)src.RoomInfo.PeerId : (ulong)src.Account.Id)
                 .Member(dest => dest.Nickname, src => src.Account.Nickname)
                 .Value(dest => dest.Unk1, (byte)144);
 
