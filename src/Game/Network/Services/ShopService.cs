@@ -1,9 +1,11 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using BlubLib.DotNetty.Handlers.MessageHandling;
 using Netsphere.Network.Data.Game;
 using Netsphere.Network.Message.Game;
+using Netsphere.Shop;
 using NLog;
 using NLog.Fluent;
 using ProudNet.Handlers;
@@ -318,30 +320,108 @@ namespace Netsphere.Network.Services
         [MessageHandler(typeof(CRandomShopRollingStartReqMessage))]
         public async Task RandomShopRollHandler(GameSession session, CRandomShopRollingStartReqMessage message)
         {
-            var shop = GameServer.Instance.ResourceCache.GetShop();
+            var plr = session.Player;
+            if (plr == null)
+                return;
 
+            if (!FumbiShop.HasPool || plr.PEN < FumbiShop.RollCostPEN)
+            {
+                await session.SendAsync(new SRandomShopItemInfoAckMessage
+                {
+                    Item = new RandomShopItemDto()
+                }).ConfigureAwait(false);
+                return;
+            }
+
+            var entry = FumbiShop.Roll(message.IsWeapon);
+            if (entry == null)
+            {
+                await session.SendAsync(new SRandomShopItemInfoAckMessage
+                {
+                    Item = new RandomShopItemDto()
+                }).ConfigureAwait(false);
+                return;
+            }
+
+            plr.PEN -= FumbiShop.RollCostPEN;
+
+            PlayerItem rolled;
+            try
+            {
+                rolled = plr.Inventory.Create(
+                    entry.ItemNumber,
+                    entry.PriceType,
+                    entry.PeriodType,
+                    entry.Period,
+                    entry.Color,
+                    0,
+                    (uint)(entry.PeriodType == ItemPeriodType.Units ? entry.Period : 0));
+            }
+            catch (Exception ex)
+            {
+                plr.PEN += FumbiShop.RollCostPEN;
+                Logger.Error()
+                    .Account(session)
+                    .Exception(ex)
+                    .Message($"Random shop failed to create item {entry.ItemNumber}")
+                    .Write();
+
+                await session.SendAsync(new SRandomShopItemInfoAckMessage
+                {
+                    Item = new RandomShopItemDto()
+                }).ConfigureAwait(false);
+                return;
+            }
+
+            FumbiShop.SetLastRoll(plr, rolled.Id);
+
+            uint number = entry.ItemNumber;
             await session.SendAsync(new SRandomShopItemInfoAckMessage
             {
-                Item = new RandomShopItemDto()
+                Item = new RandomShopItemDto
+                {
+                    Unk1 = number,
+                    Unk2 = number,
+                    Unk3 = number,
+                    Unk4 = number,
+                    Unk5 = number,
+                    Unk6 = 0
+                }
             }).ConfigureAwait(false);
-            //session.Send(new SRandomShopItemInfoAckMessage
-            //{
-            //    Item = new RandomShopItemDto
-            //    {
-            //        Unk1 = 2000001,
-            //        Value = 2000001,
-            //        CurrentWeapon = 2000001,
-            //        Unk4 = 2000001,
-            //        Unk5 = 2000001,
-            //        Unk6 = 0,
-            //    }
-            //});
+
+            await session.SendAsync(new SRefreshCashInfoAckMessage(plr.PEN, plr.AP))
+                .ConfigureAwait(false);
+        }
+
+        [MessageHandler(typeof(CRandomShopItemGetReqMessage))]
+        public void RandomShopItemGetHandler(GameSession session, CRandomShopItemGetReqMessage message)
+        {
+            var plr = session.Player;
+            if (plr == null)
+                return;
+
+            FumbiShop.ClearLastRoll(plr);
         }
 
         [MessageHandler(typeof(CRandomShopItemSaleReqMessage))]
         public async Task RandomShopItemSaleHandler(GameSession session, CRandomShopItemSaleReqMessage message)
         {
-            var shop = GameServer.Instance.ResourceCache.GetShop();
+            var plr = session.Player;
+            if (plr == null)
+                return;
+
+            ulong itemId;
+            if (FumbiShop.TryTakeLastRoll(plr, out itemId))
+            {
+                var item = plr.Inventory.GetItem(itemId);
+                if (item != null)
+                {
+                    plr.Inventory.Remove(item);
+                    plr.PEN += FumbiShop.RollCostPEN / 2;
+                    await session.SendAsync(new SRefreshCashInfoAckMessage(plr.PEN, plr.AP))
+                        .ConfigureAwait(false);
+                }
+            }
 
             await session.SendAsync(new SRandomShopItemInfoAckMessage
             {
