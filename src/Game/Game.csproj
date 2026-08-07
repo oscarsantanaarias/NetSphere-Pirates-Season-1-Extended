@@ -120,6 +120,7 @@
     <Compile Include="ServerlistManager.cs" />
     <Compile Include="Channel.cs" />
     <Compile Include="ChannelManager.cs" />
+    <Compile Include="Club.cs" />
     <Compile Include="Character.cs" />
     <Compile Include="CharacterManager.cs" />
     <Compile Include="Commands\CommandManager.cs" />

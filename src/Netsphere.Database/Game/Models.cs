@@ -415,4 +415,31 @@ namespace Netsphere.Database.Game
         public int Count { get; set; }
         public byte RequiredSecurityLevel { get; set; }
     }
+
+    [Table("clubs")]
+    public class ClubDto
+    {
+        [Key]
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string Icon { get; set; }
+        public int MasterId { get; set; }
+        public string Notice { get; set; }
+        public string CreatedDate { get; set; }
+        public int Level { get; set; }
+    }
+
+    [Table("club_players")]
+    public class ClubPlayerDto
+    {
+        [Key]
+        public int Id { get; set; }
+        public int ClubId { get; set; }
+        public int PlayerId { get; set; }
+
+        [Column("MemberRank")]
+        public byte Rank { get; set; }
+
+        public string JoinedDate { get; set; }
+    }
 }
