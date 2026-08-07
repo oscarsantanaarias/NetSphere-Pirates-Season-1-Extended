@@ -260,44 +260,48 @@ namespace Netsphere.Network.Services
 
             if (!table.TryGetValue(capsule.ItemNumber, out def) || def.group == null)
             {
-                await session.SendAsync(new SUseCapsuleAckMessage(1)).ConfigureAwait(false);
-                return;
+                Console.WriteLine($"[CAPSULE-TEST] no rewards for capsule {(uint)capsule.ItemNumber}, giving debug item 2000000");
+                var dbgReward = CreateShopItem(plr, 2000000, 0, 0);
+                if (dbgReward != null)
+                    rewards.Add(dbgReward);
             }
-
-            foreach (var group in def.group)
+            else
             {
-                if (group.reward == null || group.reward.Length == 0)
-                    continue;
-
-                var totalRate = group.reward.Sum(r => r.Rate);
-                if (totalRate <= 0)
-                    continue;
-
-                var roll = _capsuleRng.Next(0, totalRate);
-                Netsphere.Resource.xml.ItemRewardEntryDto picked = null;
-                var acc = 0;
-                foreach (var r in group.reward)
+                foreach (var group in def.group)
                 {
-                    acc += r.Rate;
-                    if (roll < acc) { picked = r; break; }
-                }
-                if (picked == null)
-                    continue;
+                    if (group.reward == null || group.reward.Length == 0)
+                        continue;
 
-                if (picked.Type == (uint)CapsuleRewardType.PEN)
-                {
-                    plr.PEN += picked.Value;
-                    rewards.Add(new CapsuleRewardDto(picked.Value));
-                }
-                else
-                {
-                    uint effect = 0;
-                    if (!string.IsNullOrEmpty(picked.Effects))
-                        uint.TryParse(picked.Effects.Split(',')[0], out effect);
+                    var totalRate = group.reward.Sum(r => r.Rate);
+                    if (totalRate <= 0)
+                        continue;
 
-                    var itemReward = CreateShopItem(plr, picked.Data, picked.Color, effect);
-                    if (itemReward != null)
-                        rewards.Add(itemReward);
+                    var roll = _capsuleRng.Next(0, totalRate);
+                    Netsphere.Resource.xml.ItemRewardEntryDto picked = null;
+                    var acc = 0;
+                    foreach (var r in group.reward)
+                    {
+                        acc += r.Rate;
+                        if (roll < acc) { picked = r; break; }
+                    }
+                    if (picked == null)
+                        continue;
+
+                    if (picked.Type == (uint)CapsuleRewardType.PEN)
+                    {
+                        plr.PEN += picked.Value;
+                        rewards.Add(new CapsuleRewardDto(picked.Value));
+                    }
+                    else
+                    {
+                        uint effect = 0;
+                        if (!string.IsNullOrEmpty(picked.Effects))
+                            uint.TryParse(picked.Effects.Split(',')[0], out effect);
+
+                        var itemReward = CreateShopItem(plr, picked.Data, picked.Color, effect);
+                        if (itemReward != null)
+                            rewards.Add(itemReward);
+                    }
                 }
             }
 
