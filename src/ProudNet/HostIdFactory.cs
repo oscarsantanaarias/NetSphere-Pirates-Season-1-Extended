@@ -9,7 +9,6 @@ namespace ProudNet
         uint New();
         void Free(uint hostId);
     }
-    // quick test
     public class HostIdFactory : IHostIdFactory
     {
         private long _counter = 1000;

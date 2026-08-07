@@ -30,9 +30,11 @@ namespace ProudNet.Handlers
                 var session = _server.SessionsByUdpId.GetValueOrDefault(message.SessionId);
                 if (session == null)
                 {
+                    if (message.Content == null || message.Content.ReadableBytes < 1)
+                        return;
+
                     if (message.Content.GetByte(0) != (byte)ProudCoreOpCode.ServerHolepunch)
-                        throw new ProudException(
-                            $"Expected {ProudCoreOpCode.ServerHolepunch} as first udp message but got {(ProudCoreOpCode)message.Content.GetByte(0)}"); //pnet wants serverholepunch message cuz udp is unreliable and server&client need to check if server&client are connected, udp has no real connection, its missing response/sync messages
+                        return;
 
                     var holepunch = (ServerHolepunchMessage)CoreMessageDecoder.Decode(message.Content);
 

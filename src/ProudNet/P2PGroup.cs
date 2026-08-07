@@ -28,7 +28,10 @@ namespace ProudNet
             if (encrypted)
                 crypt = new Crypt(_server.Configuration.EncryptedMessageKeyLength);
 
-            var session = _server.Sessions[hostId];
+            var session = _server.Sessions.GetValueOrDefault(hostId);
+            if (session == null)
+                throw new ProudException($"Member {hostId} has no active session");
+
             var remotePeer = new RemotePeer(this, session, crypt);
             if (!_members.TryAdd(hostId, remotePeer))
                 throw new ProudException($"Member {hostId} is already in P2PGroup {HostId}");
@@ -42,7 +45,13 @@ namespace ProudNet
 
             foreach (var member in _members.Values.Where(member => member.HostId != hostId).Cast<RemotePeer>())
             {
-                var memberSession = _server.Sessions?[member.HostId];
+                var memberSession = _server.Sessions.GetValueOrDefault(member.HostId);
+                if (memberSession == null)
+                {
+                    RemotePeer dead;
+                    _members.TryRemove(member.HostId, out dead);
+                    continue;
+                }
 
                 var stateA = new P2PConnectionState(member);
                 var stateB = new P2PConnectionState(remotePeer);
@@ -71,6 +80,7 @@ namespace ProudNet
             var session = memberToLeave.Session;
             session.P2PGroup = null;
             session.SendAsync(new P2PGroup_MemberLeaveMessage(hostId, HostId));
+            memberToLeave.ConnectionStates.Clear();
 
             foreach (var member in _members.Values.Where(entry => entry.HostId != hostId))
             {
