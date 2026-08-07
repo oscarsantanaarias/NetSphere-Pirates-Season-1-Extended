@@ -1,10 +1,11 @@
-﻿using System;
+using System;
+using System.Net.Sockets;
+using DotNetty.Codecs;
 using DotNetty.Transport.Channels;
-using Microsoft.Extensions.Logging;
 
 namespace ProudNet.Handlers
 {
-    
+
     internal class ErrorHandler : ChannelHandlerAdapter
     {
         private readonly ProudServer _server;
@@ -15,10 +16,25 @@ namespace ProudNet.Handlers
 
         public override void ExceptionCaught(IChannelHandlerContext context, Exception exception)
         {
-            LoggerMessage.DefineScope($"Unhandled exception");
+            if (exception == null)
+                return;
+
             var session = context.Channel.GetAttribute(ChannelAttributes.Session).Get();
+            var baseException = exception.GetBaseException();
+
             _server.RaiseError(new ErrorEventArgs(session, exception));
-            //session?.CloseAsync();
+
+            if (IsTransportException(exception) || IsTransportException(baseException))
+                session?.CloseAsync();
+        }
+
+        private static bool IsTransportException(Exception e)
+        {
+            return e is SocketException
+                || e is ClosedChannelException
+                || e is DecoderException
+                || e is CorruptedFrameException
+                || e is TooLongFrameException;
         }
     }
 }

@@ -199,7 +199,6 @@ namespace Netsphere.Network
                     gameSession.Player.Save();
 
                     PlayerManager.Remove(gameSession.Player);
-                    System.Console.WriteLine($"[DISCONNECT-TEST] player removed, players alive={PlayerManager.Count}");
 
                     Logger.Debug()
                         .Account(gameSession)
@@ -272,7 +271,7 @@ namespace Netsphere.Network
 
                 int playerson = 0;
 
-                foreach (var plr in PlayerManager.Where(plr => plr.IsLoggedIn()))
+                foreach (var plr in PlayerManager.Where(plr => plr.IsLoggedIn()).ToArray())
                 {
                     try
                     {
@@ -300,8 +299,21 @@ namespace Netsphere.Network
             {
                 _mailBoxCheckTimer = TimeSpan.Zero;
 
-                foreach (var plr in PlayerManager.Where(plr => plr.IsLoggedIn()))
-                    plr.Mailbox.Remove(plr.Mailbox.Where(mail => mail.Expires >= DateTimeOffset.Now));
+                foreach (var plr in PlayerManager.Where(plr => plr.IsLoggedIn()).ToArray())
+                {
+                    try
+                    {
+                        plr.Mailbox.Remove(plr.Mailbox.Where(mail => mail.Expires >= DateTimeOffset.Now));
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error()
+                            .Account(plr)
+                            .Exception(ex)
+                            .Message("Failed to purge mailbox")
+                            .Write();
+                    }
+                }
             }
         }
 

@@ -94,19 +94,19 @@ namespace Netsphere
             OnMessage(new ChannelMessageEventArgs(this, plr, message));
 
             foreach (var p in Players.Values.Where(p => !p.DenyManager.Contains(plr.Account.Id) && p.Room == null))
-                p.ChatSession.SendAsync(new SChatMessageAckMessage(ChatType.Channel, plr.Account.Id, plr.Account.Nickname, message));
+                p.ChatSession?.SendAsync(new SChatMessageAckMessage(ChatType.Channel, plr.Account.Id, plr.Account.Nickname, message));
         }
 
         public void Broadcast(IGameMessage message, bool excludeRooms = false)
         {
             foreach (var plr in Players.Values.Where(plr => !excludeRooms || plr.Room == null))
-                plr.Session.SendAsync(message);
+                plr.Session?.SendAsync(message);
         }
 
         public void Broadcast(IChatMessage message, bool excludeRooms = false)
         {
             foreach (var plr in Players.Values.Where(plr => !excludeRooms || plr.Room == null))
-                plr.ChatSession.SendAsync(message);
+                plr.ChatSession?.SendAsync(message);
         }
     }
 }
