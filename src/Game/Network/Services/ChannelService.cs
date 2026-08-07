@@ -65,7 +65,11 @@ namespace Netsphere.Network.Services
             {
                 await session.SendAsync(new SServerResultInfoAckMessage(ServerResult.ChannelLimitReached))
                     .ConfigureAwait(false);
+                return;
             }
+
+            if (session.Player.Channel != null)
+                await MissionService.SendMissionInfo(session).ConfigureAwait(false);
         }
 
         [MessageHandler(typeof(CChannelLeaveReqMessage))]
@@ -167,11 +171,5 @@ namespace Netsphere.Network.Services
             return session.SendAsync(new SServerResultInfoAckMessage(ServerResult.QuickJoinFailed));
         }
 
-        [MessageHandler(typeof(CTaskRequestReqMessage))]
-        public Task TaskRequestReq(GameSession session, CTaskRequestReqMessage message)
-        {
-            //ToDo - Logic
-            return session.SendAsync(new SServerResultInfoAckMessage(ServerResult.FailedToRequestTask));
-        }
     }
 }

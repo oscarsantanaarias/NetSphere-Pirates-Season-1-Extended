@@ -28,6 +28,7 @@ namespace Netsphere.Game.GameRules
                 .PermitIf(GameRuleStateTrigger.StartPrepare, GameRuleState.Preparing, CanStart);
 
             StateMachine.Configure(GameRuleState.Preparing)
+                .OnEntry(() => _loadingOk.Clear())
                 .Permit(GameRuleStateTrigger.StartGame, GameRuleState.Neutral);
 
             StateMachine.Configure(GameRuleState.Neutral)
@@ -70,11 +71,9 @@ namespace Netsphere.Game.GameRules
             {
                 if (StateMachine.IsInState(GameRuleState.Neutral))
                 {
-                    // Still have enough players?
-                    if (teamMgr.PlayersPlaying.Any())
+                    if (!teamMgr.PlayersPlaying.Any())
                         StateMachine.Fire(GameRuleStateTrigger.StartResult);
 
-                    // Did we reach round limit?
                     if (RoundTime >= Room.Options.TimeLimit)
                         StateMachine.Fire(GameRuleStateTrigger.StartResult);
                 }
@@ -99,10 +98,10 @@ namespace Netsphere.Game.GameRules
 
         public void OnLoadingOk(Player plr)
         {
-            _loadingOk.Add(plr.Account.Id, plr);
+            _loadingOk[plr.Account.Id] = plr;
             Room.Broadcast(new SArcadeLoadingSucceedAckMessage { AccountId = plr.Account.Id });
 
-            if (_loadingOk.Count == Room.Players.Count)
+            if (_loadingOk.Count >= Room.Players.Count)
                 Room.Broadcast(new SArcadeAllLoadingSucceedAckMessage());
         }
 

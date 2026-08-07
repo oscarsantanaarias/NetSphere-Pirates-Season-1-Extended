@@ -74,6 +74,7 @@ namespace Netsphere.Network
                     .AddHandler(new InventoryService())
                     .AddHandler(new RoomService())
                     .AddHandler(new ClubService())
+                    .AddHandler(new MissionService())
 
                     .RegisterRule<CLoginReqMessage>(MustNotBeLoggedIn)
                     .RegisterRule<CCreateCharacterReqMessage>(MustBeLoggedIn)

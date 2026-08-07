@@ -167,6 +167,7 @@
     <Compile Include="Network\Services\CommunityService.cs" />
     <Compile Include="Network\Services\GeneralService.cs" />
     <Compile Include="Network\Services\InventoryService.cs" />
+    <Compile Include="Network\Services\MissionService.cs" />
     <Compile Include="Network\Services\PeerService.cs" />
     <Compile Include="Network\Services\PrivateMessageService.cs" />
     <Compile Include="Network\Services\RelayService.cs" />
