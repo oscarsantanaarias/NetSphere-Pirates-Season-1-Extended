@@ -153,6 +153,7 @@
     <Compile Include="Serializers\RoomLocationSerializer.cs" />
     <Compile Include="Serializers\CharacterStyleSerializer.cs" />
     <Compile Include="Serializers\ArrayWithIntPrefixSerializer.cs" />
+    <Compile Include="Serializers\PacketSecurity.cs" />
     <Compile Include="Serializers\IntBooleanSerializer.cs" />
     <Compile Include="Serializers\LongPeerIdSerializer.cs" />
     <Compile Include="Serializers\MatchKeySerializer.cs" />

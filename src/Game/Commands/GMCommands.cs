@@ -196,7 +196,7 @@ namespace Netsphere.Commands
         {
             Name = "fprobe";
             AllowConsole = true;
-            Permission = SecurityLevel.User;
+            Permission = SecurityLevel.GameMaster;
             SubCommands = new ICommand[0];
         }
 
@@ -254,7 +254,7 @@ namespace Netsphere.Commands
         {
             Name = "cprobe";
             AllowConsole = true;
-            Permission = SecurityLevel.User;
+            Permission = SecurityLevel.GameMaster;
             SubCommands = new ICommand[0];
         }
 

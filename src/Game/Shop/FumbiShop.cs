@@ -79,6 +79,14 @@ namespace Netsphere.Shop
             LastRoll.TryRemove(player, out itemId);
         }
 
+        public static void Remove(Player player)
+        {
+            if (player == null)
+                return;
+            ulong itemId;
+            LastRoll.TryRemove(player, out itemId);
+        }
+
         private static void EnsureBuilt()
         {
             var shop = GameServer.Instance.ResourceCache.GetShop();

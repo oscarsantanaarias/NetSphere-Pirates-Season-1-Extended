@@ -20,6 +20,9 @@ namespace ProudNet
         private IChannel _listenerChannel;
         private readonly ConcurrentDictionary<uint, ProudSession> _sessions = new ConcurrentDictionary<uint, ProudSession>();
         private readonly ConcurrentDictionary<uint, ProudSession> _sessionsByUdpId = new ConcurrentDictionary<uint, ProudSession>();
+        private readonly ConcurrentDictionary<IPAddress, int> _connectionsByIp = new ConcurrentDictionary<IPAddress, int>();
+
+        internal const int MaxConnectionsPerIp = 30;
 
         public bool IsRunning { get; private set; }
         public IReadOnlyDictionary<uint, ProudSession> Sessions => _sessions;
@@ -113,9 +116,11 @@ namespace ProudNet
                             userMessageHandler.Add(handler);
 
                         ch.Pipeline
+                            .AddLast(new ConnectionThrottle(this))
                             .AddLast(new SessionHandler(this))
 
                             .AddLast(new ProudFrameDecoder((int)Configuration.MessageMaxLength))
+                            .AddLast(new FloodGuard(this))
                             .AddLast(new ProudFrameEncoder())
 
                             .AddLast(new CoreMessageDecoder())
@@ -175,6 +180,29 @@ namespace ProudNet
         {
             foreach (var session in Sessions.Values)
                 session.SendAsync(message);
+        }
+
+        internal bool TryAddConnection(IPAddress ip)
+        {
+            if (ip == null)
+                return true;
+            if (IPAddress.IsLoopback(ip))
+                return true;
+
+            var count = _connectionsByIp.AddOrUpdate(ip, 1, (key, c) => c + 1);
+            if (count > MaxConnectionsPerIp)
+            {
+                RemoveConnection(ip);
+                return false;
+            }
+            return true;
+        }
+
+        internal void RemoveConnection(IPAddress ip)
+        {
+            if (ip == null)
+                return;
+            _connectionsByIp.AddOrUpdate(ip, 0, (key, c) => c > 0 ? c - 1 : 0);
         }
 
         internal void AddSession(ProudSession session)

@@ -27,6 +27,8 @@ namespace ProudNet
 
         internal bool UdpEnabled { get; set; }
         internal ushort UdpSessionId { get; set; }
+        internal int UdpWindowStart { get; set; }
+        internal int UdpPacketCount { get; set; }
         internal Crypt Crypt { get; set; }
         internal DateTime LastSpeedHackDetectorPing { get; set; }
         internal AsyncManualResetEvent HandhsakeEvent { get; set; }

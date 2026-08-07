@@ -40,7 +40,7 @@ namespace ProudNet
             var stringType = @this.ReadByte();
             var size = @this.ReadScalar();
             if (size <= 0) return "";
-            if (size > 0x10000) throw new Exception("ProudString too large: " + size);
+            if (size > 8192) throw new Exception("ProudString too large: " + size);
 
             switch (stringType)
             {
@@ -173,6 +173,7 @@ namespace ProudNet
             var stringType = @this.ReadByte();
             var size = @this.ReadScalar();
             if (size <= 0) return "";
+            if (size > 8192) throw new Exception("ProudString too large: " + size);
 
             string str;
             switch (stringType)

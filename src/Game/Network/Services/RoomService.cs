@@ -481,6 +481,11 @@ namespace Netsphere.Network.Services
 
         #region Scores
 
+        private static bool SameSlot(LongPeerId current, LongPeerId incoming)
+        {
+            return current != null && incoming != null && current.PeerId != null &&
+                   incoming.PeerId != null && current.PeerId.Slot == incoming.PeerId.Slot;
+        }
 
         [MessageHandler(typeof(CSlaughterAttackPointReqMessage))]
         public void SlaughterAttackPointReq(GameSession session, CSlaughterAttackPointReqMessage message)
@@ -508,13 +513,23 @@ namespace Netsphere.Network.Services
         public void CScoreKillReq(GameSession session, CScoreKillReqMessage message)
         {
             var plr = session.Player;
-            plr.RoomInfo.PeerId = message.Score.Target;
+            var room = plr?.Room;
+            if (room == null ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing))
+                return;
 
-            var room = plr.Room;
+            if (message.Score == null || message.Score.Target == null ||
+                message.Score.Target.PeerId == null || message.Score.Killer == null)
+                return;
+
+            if (SameSlot(plr.RoomInfo.PeerId, message.Score.Target))
+                plr.RoomInfo.PeerId = message.Score.Target;
+
             var killer = room.Players.GetValueOrDefault(message.Score.Killer.AccountId);
             if (killer == null)
                 return;
-            killer.RoomInfo.PeerId = message.Score.Killer;
+            if (SameSlot(killer.RoomInfo.PeerId, message.Score.Killer))
+                killer.RoomInfo.PeerId = message.Score.Killer;
 
             //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
             if (message.Score.Target.PeerId.Unk != 1)
@@ -527,18 +542,30 @@ namespace Netsphere.Network.Services
         public void CScoreKillAssistReq(GameSession session, CScoreKillAssistReqMessage message)
         {
             var plr = session.Player;
-            plr.RoomInfo.PeerId = message.Score.Target;
+            var room = plr?.Room;
+            if (room == null || plr.RoomInfo.State != PlayerState.Alive ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing))
+                return;
 
-            var room = plr.Room;
+            if (message.Score == null || message.Score.Target == null ||
+                message.Score.Target.PeerId == null || message.Score.Killer == null ||
+                message.Score.Assist == null)
+                return;
+
+            if (SameSlot(plr.RoomInfo.PeerId, message.Score.Target))
+                plr.RoomInfo.PeerId = message.Score.Target;
+
             var assist = room.Players.GetValueOrDefault(message.Score.Assist.AccountId);
             if (assist == null)
                 return;
-            assist.RoomInfo.PeerId = message.Score.Assist;
+            if (SameSlot(assist.RoomInfo.PeerId, message.Score.Assist))
+                assist.RoomInfo.PeerId = message.Score.Assist;
 
             var killer = room.Players.GetValueOrDefault(message.Score.Killer.AccountId);
             if (killer == null)
                 return;
-            killer.RoomInfo.PeerId = message.Score.Killer;
+            if (SameSlot(killer.RoomInfo.PeerId, message.Score.Killer))
+                killer.RoomInfo.PeerId = message.Score.Killer;
 
             //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
             if (message.Score.Target.PeerId.Unk != 1)
@@ -551,13 +578,22 @@ namespace Netsphere.Network.Services
         public void CScoreOffenseReq(GameSession session, CScoreOffenseReqMessage message)
         {
             var plr = session.Player;
-            plr.RoomInfo.PeerId = message.Score.Target;
+            var room = plr?.Room;
+            if (room == null || plr.RoomInfo.State != PlayerState.Alive ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing))
+                return;
 
-            var room = plr.Room;
+            if (message.Score == null || message.Score.Target == null || message.Score.Killer == null)
+                return;
+
+            if (SameSlot(plr.RoomInfo.PeerId, message.Score.Target))
+                plr.RoomInfo.PeerId = message.Score.Target;
+
             var killer = room.Players.GetValueOrDefault(message.Score.Killer.AccountId);
             if (killer == null)
                 return;
-            killer.RoomInfo.PeerId = message.Score.Killer;
+            if (SameSlot(killer.RoomInfo.PeerId, message.Score.Killer))
+                killer.RoomInfo.PeerId = message.Score.Killer;
 
             if (room.Options.MatchKey.GameRule == GameRule.Touchdown)
                 ((TouchdownGameRule)room.GameRuleManager.GameRule).OnScoreOffense(killer, null, plr, message.Score.Weapon);
@@ -567,18 +603,29 @@ namespace Netsphere.Network.Services
         public void CScoreOffenseAssistReq(GameSession session, CScoreOffenseAssistReqMessage message)
         {
             var plr = session.Player;
-            plr.RoomInfo.PeerId = message.Score.Target;
+            var room = plr?.Room;
+            if (room == null || plr.RoomInfo.State != PlayerState.Alive ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing))
+                return;
 
-            var room = plr.Room;
+            if (message.Score == null || message.Score.Target == null ||
+                message.Score.Killer == null || message.Score.Assist == null)
+                return;
+
+            if (SameSlot(plr.RoomInfo.PeerId, message.Score.Target))
+                plr.RoomInfo.PeerId = message.Score.Target;
+
             var assist = room.Players.GetValueOrDefault(message.Score.Assist.AccountId);
             if (assist == null)
                 return;
-            assist.RoomInfo.PeerId = message.Score.Assist;
+            if (SameSlot(assist.RoomInfo.PeerId, message.Score.Assist))
+                assist.RoomInfo.PeerId = message.Score.Assist;
 
             var killer = room.Players.GetValueOrDefault(message.Score.Killer.AccountId);
             if (killer == null)
                 return;
-            killer.RoomInfo.PeerId = message.Score.Killer;
+            if (SameSlot(killer.RoomInfo.PeerId, message.Score.Killer))
+                killer.RoomInfo.PeerId = message.Score.Killer;
 
             if (room.Options.MatchKey.GameRule == GameRule.Touchdown)
                 ((TouchdownGameRule)room.GameRuleManager.GameRule).OnScoreOffense(killer, assist, plr, message.Score.Weapon);
@@ -588,13 +635,22 @@ namespace Netsphere.Network.Services
         public void CScoreDefenseReq(GameSession session, CScoreDefenseReqMessage message)
         {
             var plr = session.Player;
-            plr.RoomInfo.PeerId = message.Score.Target;
+            var room = plr?.Room;
+            if (room == null || plr.RoomInfo.State != PlayerState.Alive ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing))
+                return;
 
-            var room = plr.Room;
+            if (message.Score == null || message.Score.Target == null || message.Score.Killer == null)
+                return;
+
+            if (SameSlot(plr.RoomInfo.PeerId, message.Score.Target))
+                plr.RoomInfo.PeerId = message.Score.Target;
+
             var killer = room.Players.GetValueOrDefault(message.Score.Killer.AccountId);
             if (killer == null)
                 return;
-            killer.RoomInfo.PeerId = message.Score.Killer;
+            if (SameSlot(killer.RoomInfo.PeerId, message.Score.Killer))
+                killer.RoomInfo.PeerId = message.Score.Killer;
 
             if (room.Options.MatchKey.GameRule == GameRule.Touchdown)
                 ((TouchdownGameRule)room.GameRuleManager.GameRule).OnScoreDefense(killer, null, plr, message.Score.Weapon);
@@ -604,18 +660,29 @@ namespace Netsphere.Network.Services
         public void CScoreDefenseAssistReq(GameSession session, CScoreDefenseAssistReqMessage message)
         {
             var plr = session.Player;
-            plr.RoomInfo.PeerId = message.Score.Target;
+            var room = plr?.Room;
+            if (room == null || plr.RoomInfo.State != PlayerState.Alive ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing))
+                return;
 
-            var room = plr.Room;
+            if (message.Score == null || message.Score.Target == null ||
+                message.Score.Killer == null || message.Score.Assist == null)
+                return;
+
+            if (SameSlot(plr.RoomInfo.PeerId, message.Score.Target))
+                plr.RoomInfo.PeerId = message.Score.Target;
+
             var assist = room.Players.GetValueOrDefault(message.Score.Assist.AccountId);
             if (assist == null)
                 return;
-            assist.RoomInfo.PeerId = message.Score.Assist;
+            if (SameSlot(assist.RoomInfo.PeerId, message.Score.Assist))
+                assist.RoomInfo.PeerId = message.Score.Assist;
 
             var killer = room.Players.GetValueOrDefault(message.Score.Killer.AccountId);
             if (killer == null)
                 return;
-            killer.RoomInfo.PeerId = message.Score.Killer;
+            if (SameSlot(killer.RoomInfo.PeerId, message.Score.Killer))
+                killer.RoomInfo.PeerId = message.Score.Killer;
 
             if (room.Options.MatchKey.GameRule == GameRule.Touchdown)
                 ((TouchdownGameRule)room.GameRuleManager.GameRule).OnScoreDefense(killer, assist, plr, message.Score.Weapon);
@@ -625,13 +692,23 @@ namespace Netsphere.Network.Services
         public void CScoreTeamKillReq(GameSession session, CScoreTeamKillReqMessage message)
         {
             var plr = session.Player;
-            plr.RoomInfo.PeerId = message.Score.Target;
+            var room = plr?.Room;
+            if (room == null ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing))
+                return;
 
-            var room = plr.Room;
+            if (message.Score == null || message.Score.Target == null ||
+                message.Score.Target.PeerId == null || message.Score.Killer == null)
+                return;
+
+            if (SameSlot(plr.RoomInfo.PeerId, message.Score.Target))
+                plr.RoomInfo.PeerId = message.Score.Target;
+
             var killer = room.Players.GetValueOrDefault(message.Score.Killer.AccountId);
             if (killer == null)
                 return;
-            killer.RoomInfo.PeerId = message.Score.Killer;
+            if (SameSlot(killer.RoomInfo.PeerId, message.Score.Killer))
+                killer.RoomInfo.PeerId = message.Score.Killer;
 
             //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
             if (message.Score.Target.PeerId.Unk != 1)
@@ -644,9 +721,17 @@ namespace Netsphere.Network.Services
         public void CScoreHealAssistReq(GameSession session, CScoreHealAssistReqMessage message)
         {
             var plr = session.Player;
-            plr.RoomInfo.PeerId = message.Id;
+            var room = plr?.Room;
+            if (room == null || plr.RoomInfo.State != PlayerState.Alive ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing))
+                return;
 
-            var room = plr.Room;
+            if (message.Id == null)
+                return;
+
+            if (SameSlot(plr.RoomInfo.PeerId, message.Id))
+                plr.RoomInfo.PeerId = message.Id;
+
             room.GameRuleManager.GameRule.OnScoreHeal(plr);
         }
 
@@ -654,13 +739,21 @@ namespace Netsphere.Network.Services
         public void CScoreSuicideReq(GameSession session, CScoreSuicideReqMessage message)
         {
             var plr = session.Player;
-            plr.RoomInfo.PeerId = message.Id;
+            var room = plr?.Room;
+            if (room == null ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing))
+                return;
+
+            if (message.Id == null || message.Id.PeerId == null)
+                return;
+
+            if (SameSlot(plr.RoomInfo.PeerId, message.Id))
+                plr.RoomInfo.PeerId = message.Id;
 
             //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
             if (message.Id.PeerId.Unk != 1)
                 return;
 
-            var room = plr.Room;
             room.GameRuleManager.GameRule.OnScoreSuicide(plr);
         }
 

@@ -62,6 +62,9 @@ namespace Netsphere.Network.Services
             if (plr == null)
                 return;
 
+            if (message.TaskId == 0 || message.TaskId > 10000)
+                return;
+
             try
             {
                 using (var db = GameDatabase.Open())
@@ -106,6 +109,13 @@ namespace Netsphere.Network.Services
         {
             var plr = session.Player;
             if (plr == null)
+            {
+                await session.SendAsync(new SServerResultInfoAckMessage(ServerResult.FailedToRequestTask))
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            if (message.TaskId == 0 || message.TaskId > 10000)
             {
                 await session.SendAsync(new SServerResultInfoAckMessage(ServerResult.FailedToRequestTask))
                     .ConfigureAwait(false);

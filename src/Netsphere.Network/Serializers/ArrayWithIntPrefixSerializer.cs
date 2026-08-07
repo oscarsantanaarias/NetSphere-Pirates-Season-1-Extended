@@ -42,6 +42,10 @@ namespace Netsphere.Network.Serializers
             {
                 emiter.CallDeserializerForType(length.LocalType, length);
 
+                emiter.LoadLocal(length);
+                emiter.LoadConstant(nameof(ArrayWithIntPrefixSerializer));
+                emiter.Call(typeof(PacketSecurity).GetMethod(nameof(PacketSecurity.EnsureArrayLength)));
+
                 // if(length < 1) {
                 //  value = Array.Empty<>()
                 //  return

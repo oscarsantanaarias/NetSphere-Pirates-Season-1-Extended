@@ -82,6 +82,8 @@
     <Compile Include="Codecs\UdpFrameEncoder.cs" />
     <Compile Include="Handlers\ErrorHandler.cs" />
     <Compile Include="Handlers\UdpHandler.cs" />
+    <Compile Include="Handlers\ConnectionThrottle.cs" />
+    <Compile Include="Handlers\FloodGuard.cs" />
     <Compile Include="Codecs\UdpMessage.cs" />
     <Compile Include="Crypt.cs" />
     <Compile Include="ErrorEventArgs.cs" />

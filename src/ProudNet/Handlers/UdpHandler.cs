@@ -11,6 +11,8 @@ namespace ProudNet.Handlers
 {
     internal class UdpHandler : ChannelHandlerAdapter
     {
+        private const int MaxUdpPacketsPerWindow = 2000;
+
         private readonly UdpSocket _socket;
         private readonly ProudServer _server;
 
@@ -55,6 +57,15 @@ namespace ProudNet.Handlers
                 }
 
                 if (session.UdpSocket != _socket)
+                    return;
+
+                var nowTick = Environment.TickCount;
+                if (nowTick - session.UdpWindowStart >= 1000)
+                {
+                    session.UdpWindowStart = nowTick;
+                    session.UdpPacketCount = 0;
+                }
+                if (++session.UdpPacketCount > MaxUdpPacketsPerWindow)
                     return;
 
                 session.Channel.Pipeline.Context<ProudFrameDecoder>().FireChannelRead(message.Content.Retain());
