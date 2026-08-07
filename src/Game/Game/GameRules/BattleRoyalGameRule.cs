@@ -107,6 +107,9 @@ namespace Netsphere.Game.GameRules
 
         public override void OnScoreKill(Player killer, Player assist, Player target, AttackAttribute attackAttribute)
         {
+            if (!StateMachine.IsInState(GameRuleState.Playing))
+                return;
+
             base.OnScoreKill(killer, assist, target, attackAttribute);
 
             if (target == First)
@@ -127,7 +130,9 @@ namespace Netsphere.Game.GameRules
 
         private Player GetFirst()
         {
-            return Room.TeamManager.PlayersPlaying.Aggregate((highestPlayer, player) => (highestPlayer == null || player.RoomInfo.Stats.TotalScore > highestPlayer.RoomInfo.Stats.TotalScore ? player : highestPlayer));
+            return Room.TeamManager.PlayersPlaying
+                .OrderByDescending(player => player.RoomInfo.Stats.TotalScore)
+                .FirstOrDefault();
         }
 
         private bool CanStartGame()
