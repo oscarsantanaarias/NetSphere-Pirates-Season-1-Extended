@@ -47,15 +47,22 @@ namespace Netsphere.Network
 
         protected override void OnDisconnected(ProudSession session)
         {
-            var relaySession = (RelaySession)session;
-            if (relaySession.GameSession != null && relaySession.Player != null)
+            try
             {
-                if (relaySession.Player.Room != null)
-                    relaySession.GameSession.Dispose();
-                else if (relaySession.Player.RelaySession == relaySession)
-                    relaySession.Player.RelaySession = null;
+                var relaySession = (RelaySession)session;
+                if (relaySession.GameSession != null && relaySession.Player != null)
+                {
+                    if (relaySession.Player.Room != null)
+                        relaySession.GameSession.Dispose();
+                    else if (relaySession.Player.RelaySession == relaySession)
+                        relaySession.Player.RelaySession = null;
+                }
+                relaySession.GameSession = null;
             }
-            relaySession.GameSession = null;
+            catch (Exception ex)
+            {
+                Logger.Error(ex.ToString());
+            }
             base.OnDisconnected(session);
         }
 
