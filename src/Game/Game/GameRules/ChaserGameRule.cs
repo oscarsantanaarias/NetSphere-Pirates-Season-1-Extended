@@ -55,7 +55,10 @@ namespace Netsphere.Game.GameRules
 
             // Game state transitions
             StateMachine.Configure(GameRuleState.Waiting)
-                .PermitIf(GameRuleStateTrigger.StartGame, GameRuleState.Neutral, CanStartGame);
+                .PermitIf(GameRuleStateTrigger.StartPrepare, GameRuleState.Preparing, CanStartGame);
+
+            StateMachine.Configure(GameRuleState.Preparing)
+                .Permit(GameRuleStateTrigger.StartGame, GameRuleState.Neutral);
 
             StateMachine.Configure(GameRuleState.Neutral)
                 .SubstateOf(GameRuleState.Playing)

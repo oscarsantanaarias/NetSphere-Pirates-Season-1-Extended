@@ -173,6 +173,7 @@
     <Compile Include="Network\Services\RoomService.cs" />
     <Compile Include="Network\Services\ShopService.cs" />
     <Compile Include="Player.cs" />
+    <Compile Include="PlayerStats.cs" />
     <Compile Include="PlayerItem.cs" />
     <Compile Include="PlayerManager.cs" />
     <Compile Include="PlayerRoomInfo.cs" />

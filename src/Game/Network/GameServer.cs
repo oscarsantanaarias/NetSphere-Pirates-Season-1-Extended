@@ -445,16 +445,11 @@ namespace Netsphere.Network
                 .Function(dest => dest.RoomId, src => src.Room?.Id ?? 0xFFFFFFFF) // ToDo: Tutorial, License
                 .Function(dest => dest.Team, src => src.RoomInfo?.Team?.Team ?? Team.Neutral)
                 .Function(dest => dest.TotalExp, src => src.TotalExperience)
-                .Function(dest => dest.DMStats, src => new DMUserDataDto
-                {
-                    KillDeath = src.TotalDeaths > 0 ? (float)src.TotalKills / src.TotalDeaths : src.TotalKills,
-                    WinRate = src.TotalMatches > 0 ? (float)src.TotalWins / src.TotalMatches : 0f
-                })
-                .Function(dest => dest.TDStats, src => new TDUserDataDto
-                {
-                    KillScore = src.TotalKills,
-                    WinRate = src.TotalMatches > 0 ? (float)src.TotalWins / src.TotalMatches : 0f
-                });
+                .Function(dest => dest.DMStats, src => src.stats.DeathMatch.GetUserDataDto())
+                .Function(dest => dest.TDStats, src => src.stats.TouchDown.GetUserDataDto())
+                .Function(dest => dest.ChaserStats, src => src.stats.Chaser.GetUserDataDto())
+                .Function(dest => dest.BattleRoyalStats, src => src.stats.BattleRoyal.GetUserDataDto())
+                .Function(dest => dest.CaptainStats, src => src.stats.Captain.GetUserDataDto());
 
             Mapper.Register<Player, UserDataWithNickDto>()
                 .Member(dest => dest.AccountId, src => src.Account.Id)

@@ -91,18 +91,23 @@ namespace Netsphere.Network.Services
             }
             catch (RoomAccessDeniedException)
             {
+                plr.Channel.RoomManager.Remove(room);
                 session.SendAsync(new SServerResultInfoAckMessage(ServerResult.CantEnterRoom));
             }
             catch (RoomLimitReachedException)
             {
+                plr.Channel.RoomManager.Remove(room);
                 session.SendAsync(new SServerResultInfoAckMessage(ServerResult.CantEnterRoom));
             }
             catch (RoomException)
             {
+                plr.Channel.RoomManager.Remove(room);
                 session.SendAsync(new SServerResultInfoAckMessage(ServerResult.ImpossibleToEnterRoom));
             }
             catch (Exception ex)
             {
+                if (room.Players.Count == 0)
+                    plr.Channel.RoomManager.Remove(room);
                 session.SendAsync(new SServerResultInfoAckMessage(ServerResult.FailedToRequestTask));
                 Logger.Error(ex.Message);
             }
@@ -286,8 +291,8 @@ namespace Netsphere.Network.Services
             var plr = session.Player;
             var stateMachine = plr.Room.GameRuleManager.GameRule.StateMachine;
 
-            if (stateMachine.CanFire(GameRuleStateTrigger.StartGame))
-                stateMachine.Fire(GameRuleStateTrigger.StartGame);
+            if (stateMachine.CanFire(GameRuleStateTrigger.StartPrepare))
+                stateMachine.Fire(GameRuleStateTrigger.StartPrepare);
             else
                 session.SendAsync(new SEventMessageAckMessage(GameEventMessage.CantStartGame, 0, 0, 0, ""));
         }
@@ -728,7 +733,19 @@ namespace Netsphere.Network.Services
 
         [MessageHandler(typeof(CArcadeStageClearReqMessage))]
         public void CArcadeStageClearReq(GameSession session, CArcadeStageClearReqMessage message)
-        { }
+        {
+            var plr = session.Player;
+            if (plr == null)
+                return;
+
+            if (plr.TutorialState != 0)
+                return;
+
+            plr.TutorialState = 1;
+            plr.Save();
+            plr.PEN += 5000;
+            plr.AP += 2000;
+        }
 
         [MessageHandler(typeof(CArcadeStageFailedReqMessage))]
         public void CArcadeStageFailedReq(GameSession session, CArcadeStageFailedReqMessage message)

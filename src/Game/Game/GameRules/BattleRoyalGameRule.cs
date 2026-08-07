@@ -34,7 +34,10 @@ namespace Netsphere.Game.GameRules
             Briefing = new Briefing(this);
 
             StateMachine.Configure(GameRuleState.Waiting)
-                .PermitIf(GameRuleStateTrigger.StartGame, GameRuleState.Neutral, CanStartGame);
+                .PermitIf(GameRuleStateTrigger.StartPrepare, GameRuleState.Preparing, CanStartGame);
+
+            StateMachine.Configure(GameRuleState.Preparing)
+                .Permit(GameRuleStateTrigger.StartGame, GameRuleState.Neutral);
 
             StateMachine.Configure(GameRuleState.Neutral)
                 .SubstateOf(GameRuleState.Playing)

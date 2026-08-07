@@ -183,6 +183,7 @@
         FirstHalf = 1,
         HalfTime = 2,
         SecondHalf = 3,
+        StartGameCounter = 10,
     }
 
     public enum Team : byte

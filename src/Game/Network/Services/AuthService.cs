@@ -463,6 +463,65 @@ namespace Netsphere.Network.Services
                 }
             }
 
+            if (plr.Account.SecurityLevel > SecurityLevel.User)
+            {
+                var ownedItemNumbers = new HashSet<ItemNumber>(plr.Inventory.Select(i => i.ItemNumber));
+
+                IEnumerable<StartItemDto> gmStartItems;
+                using (var db = GameDatabase.Open())
+                {
+                    gmStartItems = await db.FindAsync<StartItemDto>(statement => statement
+                            .Where($"{nameof(StartItemDto.RequiredSecurityLevel):C} > 0 AND {nameof(StartItemDto.RequiredSecurityLevel):C} <= @{nameof(plr.Account.SecurityLevel)}")
+                            .WithParameters(new { plr.Account.SecurityLevel }))
+                        .ConfigureAwait(false);
+                }
+
+                foreach (var startItem in gmStartItems)
+                {
+                    var shop = GameServer.Instance.ResourceCache.GetShop();
+                    var item = shop.Items.Values.First(group => group.GetItemInfo(startItem.ShopItemInfoId) != null);
+
+                    if (ownedItemNumbers.Contains(item.ItemNumber))
+                        continue;
+
+                    var itemInfo = item.GetItemInfo(startItem.ShopItemInfoId);
+                    if (itemInfo == null)
+                    {
+                        Logger.Warn($"Cant find ShopItemInfo for Start item {startItem.Id} - Forgot to reload the cache?");
+                        continue;
+                    }
+
+                    var effect = itemInfo.EffectGroup.GetEffect(startItem.ShopEffectId);
+
+                    var price = itemInfo.PriceGroup.GetPrice(startItem.ShopPriceId);
+                    if (price == null)
+                    {
+                        Logger.Warn($"Cant find ShopPrice for Start item {startItem.Id} - Forgot to reload the cache?");
+                        continue;
+                    }
+
+                    var color = startItem.Color;
+                    if (color > item.ColorGroup)
+                    {
+                        Logger.Warn($"Start item {startItem.Id} has an invalid color {color}");
+                        color = 0;
+                    }
+
+                    var count = startItem.Count;
+                    if (count > 0 && item.ItemNumber.Category <= ItemCategory.Skill)
+                    {
+                        Logger.Warn($"Start item {startItem.Id} cant have stacks(quantity={count})");
+                        count = 0;
+                    }
+
+                    if (count < 0)
+                        count = 0;
+
+                    plr.Inventory.Create(itemInfo, price, color, effect.Effect, (uint)count);
+                    ownedItemNumbers.Add(item.ItemNumber);
+                }
+            }
+
             //session.Send(new SEquipedBoostItemAckMessage());
             //session.Send(new SClearInvalidateItemAckMessage());
         }
@@ -572,6 +631,7 @@ namespace Netsphere.Network.Services
             await session.SendAsync(new Message.Chat.SDenyChatListAckMessage(plr.DenyManager.Select(d => d.Map<Deny, DenyDto>()).ToArray()))
                 .ConfigureAwait(false);
             CommunityService.SyncFriendsOnLogin(plr);
+            CommunityService.SyncCombisOnLogin(plr);
         }
 
         [MessageHandler(typeof(Message.Relay.CRequestLoginMessage))]

@@ -49,6 +49,7 @@ namespace Netsphere
         public ConcurrentDictionary<ulong, uint> Friends { get; } = new ConcurrentDictionary<ulong, uint>();
 
         public Account Account { get; set; }
+        public StatsManager stats { get; }
         public LicenseManager LicenseManager { get; }
         public CharacterManager CharacterManager { get; }
         public Inventory Inventory { get; }
@@ -206,7 +207,25 @@ namespace Netsphere
                     .WithParameters(new { Id = (int)account.Id }));
                 foreach (var f in incoming)
                     Friends[(ulong)f.PlayerId] = (uint)f.FriendState;
+
+                dto.DeathmatchInfo = db.Find<Netsphere.Database.Game.PlayerInfoDeathmatchDto>(s => s
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoDeathmatchDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.TouchdownInfo = db.Find<Netsphere.Database.Game.PlayerInfoTouchdownDto>(s => s
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoTouchdownDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.ChaserInfo = db.Find<Netsphere.Database.Game.PlayerInfoChaserDto>(s => s
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoChaserDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.BattleRoyalInfo = db.Find<Netsphere.Database.Game.PlayerInfoBattleRoyalDto>(s => s
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoBattleRoyalDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.CaptainInfo = db.Find<Netsphere.Database.Game.PlayerInfoCaptainDto>(s => s
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoCaptainDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
             }
+
+            stats = new StatsManager(this, dto);
         }
 
         /// <summary>
@@ -407,6 +426,7 @@ namespace Netsphere
                 LicenseManager.Save(db);
                 DenyManager.Save(db);
                 Mailbox.Save(db);
+                stats.Save(db);
             }
         }
 

@@ -21,7 +21,9 @@ namespace Netsphere
         EnteringHalfTime,
         HalfTime,
         SecondHalf,
-        FullGame
+        FullGame,
+
+        Preparing
     }
 
     enum GameRuleStateTrigger
@@ -30,6 +32,7 @@ namespace Netsphere
         EndGame,
         StartResult,
         StartHalfTime,
-        StartSecondHalf
+        StartSecondHalf,
+        StartPrepare
     }
 }

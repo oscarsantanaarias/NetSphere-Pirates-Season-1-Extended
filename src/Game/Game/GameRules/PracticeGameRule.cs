@@ -20,7 +20,10 @@ namespace Netsphere.Game.GameRules //placeholder for real practice, c&p of death
             Briefing = new Briefing(this);
 
             StateMachine.Configure(GameRuleState.Waiting)
-                .PermitIf(GameRuleStateTrigger.StartGame, GameRuleState.FirstHalf, CanStartGame);
+                .PermitIf(GameRuleStateTrigger.StartPrepare, GameRuleState.Preparing, CanStartGame);
+
+            StateMachine.Configure(GameRuleState.Preparing)
+                .Permit(GameRuleStateTrigger.StartGame, GameRuleState.FirstHalf);
 
             StateMachine.Configure(GameRuleState.FirstHalf)
                 .SubstateOf(GameRuleState.Playing)
