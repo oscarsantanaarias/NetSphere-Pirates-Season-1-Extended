@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Data;
 using System.Threading.Tasks;
@@ -38,6 +39,9 @@ namespace Netsphere
 
         public DenyManager DenyManager { get; }
         public Mailbox Mailbox { get; }
+
+        // friendAccountId -> FriendState (1=Requesting, 2=InList, 3=RequestDialog). In-memory.
+        public ConcurrentDictionary<ulong, uint> Friends { get; } = new ConcurrentDictionary<ulong, uint>();
 
         public Account Account { get; set; }
         public LicenseManager LicenseManager { get; }

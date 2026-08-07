@@ -110,23 +110,84 @@ namespace Netsphere.Network.Services
         [MessageHandler(typeof(CFriendReqMessage))]  //friend reqs
         public void FriendRequest(ChatSession session, CFriendReqMessage message)
         {
-            if (session.Player == null)
+            var me = session.Player;
+            if (me?.Account == null || message.AccountId == me.Account.Id)
                 return;
 
             var target = GameServer.Instance.PlayerManager[message.AccountId];
-            if (target == null)
+
+            switch (message.Action)
             {
-                session.SendAsync(new SFriendAckMessage(2));
-                return;
+                case 0: // Add / request
+                    if (target == null)
+                    {
+                        session.SendAsync(new SFriendAckMessage(1)); // UserNotExist
+                        return;
+                    }
+                    if (me.Friends.ContainsKey(target.Account.Id))
+                        return;
+
+                    var setting = nameof(UserDataDto.AllowFriendRequest);
+                    var allows = target.Settings.Contains(setting) &&
+                                 target.Settings.Get<CommunitySetting>(setting) == CommunitySetting.Allow;
+                    if (!allows)
+                    {
+                        session.SendAsync(new SFriendAckMessage(1));
+                        return;
+                    }
+
+                    me.Friends[target.Account.Id] = 1;   // Requesting
+                    target.Friends[me.Account.Id] = 3;   // RequestDialog
+
+                    session.SendAsync(new SFriendAckMessage
+                    {
+                        Result = 0,
+                        Friend = new FriendDto { AccountId = target.Account.Id, Nickname = target.Account.Nickname, State = 1 }
+                    });
+                    target.ChatSession?.SendAsync(new SFriendAckMessage
+                    {
+                        Result = 0,
+                        Friend = new FriendDto { AccountId = me.Account.Id, Nickname = me.Account.Nickname, State = 3 }
+                    });
+                    break;
+
+                case 2: // Update / accept
+                    if (target == null)
+                        return;
+                    me.Friends[target.Account.Id] = 2;   // InList
+                    target.Friends[me.Account.Id] = 2;
+
+                    session.SendAsync(new SFriendAckMessage
+                    {
+                        Result = 0,
+                        Friend = new FriendDto { AccountId = target.Account.Id, Nickname = target.Account.Nickname, State = 2 }
+                    });
+                    target.ChatSession?.SendAsync(new SFriendAckMessage
+                    {
+                        Result = 0,
+                        Friend = new FriendDto { AccountId = me.Account.Id, Nickname = me.Account.Nickname, State = 2 }
+                    });
+                    break;
+
+                case 1: // Remove
+                case 3: // Decline
+                    uint removed;
+                    me.Friends.TryRemove(message.AccountId, out removed);
+                    if (target != null)
+                        target.Friends.TryRemove(me.Account.Id, out removed);
+
+                    session.SendAsync(new SFriendAckMessage
+                    {
+                        Result = 0,
+                        Friend = new FriendDto { AccountId = message.AccountId, State = 0 }
+                    });
+                    target?.ChatSession?.SendAsync(new SFriendAckMessage
+                    {
+                        Result = 0,
+                        Friend = new FriendDto { AccountId = me.Account.Id, State = 0 }
+                    });
+                    break;
             }
-
-            var trg_settings = target.Settings;
-
-            var name = nameof(UserDataDto.AllowFriendRequest);
-            var allowFriendReq =
-            trg_settings.Contains(name) && trg_settings.Get<CommunitySetting>(name) == CommunitySetting.Allow;
-
-            session.SendAsync(new SFriendAckMessage(allowFriendReq? 0 : 2));
         }
     }
 }
