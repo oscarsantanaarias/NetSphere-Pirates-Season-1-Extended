@@ -154,6 +154,23 @@ namespace Netsphere.Resource
             return value;
         }
 
+        public IReadOnlyDictionary<uint, Netsphere.Resource.xml.ItemRewardItemDto> GetItemRewards()
+        {
+            var value = _cache.Get<IReadOnlyDictionary<uint, Netsphere.Resource.xml.ItemRewardItemDto>>(ResourceCacheType.ItemRewards);
+            if (value == null)
+            {
+                Logger.Debug("Caching...");
+
+                var dict = new Dictionary<uint, Netsphere.Resource.xml.ItemRewardItemDto>();
+                foreach (var entry in _loader.LoadItemRewards())
+                    dict[entry.Number] = entry;
+                value = dict;
+                _cache.Set(ResourceCacheType.ItemRewards, value);
+            }
+
+            return value;
+        }
+
         public void Clear()
         {
             Logger.Debug("Clearing cache");

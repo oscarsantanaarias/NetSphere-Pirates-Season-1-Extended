@@ -272,3 +272,6 @@ __pycache__/
 
 # Cake - Uncomment if you are using it
 # tools/
+# local data / one-off
+data_client/
+populate_shop.sql
