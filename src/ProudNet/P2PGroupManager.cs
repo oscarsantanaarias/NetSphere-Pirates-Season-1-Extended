@@ -18,6 +18,7 @@ namespace ProudNet
         {
             var group = new P2PGroup(_server, allowDirectP2P);
             _groups.TryAdd(group.HostId, group);
+            System.Console.WriteLine($"[P2PGROUP-TEST] create id={group.HostId} total={_groups.Count}");
             return group;
         }
 
@@ -30,6 +31,7 @@ namespace ProudNet
                     group.Leave(member.Key);
 
                 _server.Configuration.HostIdFactory.Free(groupHostId);
+                System.Console.WriteLine($"[P2PGROUP-TEST] remove id={groupHostId} total={_groups.Count}");
             }
         }
 

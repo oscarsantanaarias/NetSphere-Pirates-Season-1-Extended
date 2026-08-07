@@ -184,37 +184,45 @@ namespace Netsphere.Network
 
         protected override void OnDisconnected(ProudSession session)
         {
-            var gameSession = (GameSession)session;
-            if (gameSession.Player != null)
+            try
             {
-                gameSession.Player.Room?.Leave(gameSession.Player);
-                gameSession.Player.Channel?.Leave(gameSession.Player);
-
-                gameSession.Player.Save();
-
-                PlayerManager.Remove(gameSession.Player);
-
-                Logger.Debug()
-                    .Account(gameSession)
-                    .Message("Disconnected")
-                    .Write();
-
-                if (gameSession.Player.ChatSession != null)
+                var gameSession = (GameSession)session;
+                if (gameSession.Player != null)
                 {
-                    gameSession.Player.ChatSession.GameSession = null;
-                    gameSession.Player.ChatSession.Dispose();
-                }
+                    gameSession.Player.Room?.Leave(gameSession.Player);
+                    gameSession.Player.Channel?.Leave(gameSession.Player);
 
-                if (gameSession.Player.RelaySession != null)
-                {
-                    gameSession.Player.RelaySession.GameSession = null;
-                    gameSession.Player.RelaySession.Dispose();
-                }
+                    gameSession.Player.Save();
 
-                gameSession.Player.Session = null;
-                gameSession.Player.ChatSession = null;
-                gameSession.Player.RelaySession = null;
-                gameSession.Player = null;
+                    PlayerManager.Remove(gameSession.Player);
+                    System.Console.WriteLine($"[DISCONNECT-TEST] player removed, players alive={PlayerManager.Count}");
+
+                    Logger.Debug()
+                        .Account(gameSession)
+                        .Message("Disconnected")
+                        .Write();
+
+                    if (gameSession.Player.ChatSession != null)
+                    {
+                        gameSession.Player.ChatSession.GameSession = null;
+                        gameSession.Player.ChatSession.Dispose();
+                    }
+
+                    if (gameSession.Player.RelaySession != null)
+                    {
+                        gameSession.Player.RelaySession.GameSession = null;
+                        gameSession.Player.RelaySession.Dispose();
+                    }
+
+                    gameSession.Player.Session = null;
+                    gameSession.Player.ChatSession = null;
+                    gameSession.Player.RelaySession = null;
+                    gameSession.Player = null;
+                }
+            }
+            catch (Exception disconnectError)
+            {
+                Logger.Error(disconnectError.ToString());
             }
 
             base.OnDisconnected(session);
