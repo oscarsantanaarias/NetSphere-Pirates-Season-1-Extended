@@ -26,6 +26,11 @@ namespace Netsphere.Database.Game
         public int AP { get; set; }
         public int Coins1 { get; set; }
         public int Coins2 { get; set; }
+        public int TotalMatches { get; set; }
+        public int TotalWins { get; set; }
+        public int TotalLosses { get; set; }
+        public int TotalKills { get; set; }
+        public int TotalDeaths { get; set; }
         public byte CurrentCharacterSlot { get; set; }
 
         public IList<PlayerCharacterDto> Characters { get; set; } = new List<PlayerCharacterDto>();

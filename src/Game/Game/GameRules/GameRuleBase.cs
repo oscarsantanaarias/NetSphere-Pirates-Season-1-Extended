@@ -123,6 +123,7 @@ namespace Netsphere.Game.GameRules
         public virtual void OnScoreKill(Player killer, Player assist, Player target, AttackAttribute attackAttribute)
         {
             killer.RoomInfo.Stats.Kills++;
+            killer.TotalKills++;
             //target.RoomInfo.Stats.Deaths++; //original
 
             //if (assist != null) //original
@@ -130,6 +131,7 @@ namespace Netsphere.Game.GameRules
             {
                 //assist.RoomInfo.Stats.KillAssists++;  //originaL
                 target.RoomInfo.Stats.Deaths++;
+                target.TotalDeaths++;
 
                 /* Room.Broadcast(
                      new SScoreKillAssistAckMessage(new ScoreAssistDto(killer.RoomInfo.PeerId, assist.RoomInfo.PeerId, //original
@@ -161,6 +163,7 @@ namespace Netsphere.Game.GameRules
         public virtual void OnScoreTeamKill(Player killer, Player target, AttackAttribute attackAttribute)
         {
             target.RoomInfo.Stats.Deaths++;
+            target.TotalDeaths++;
 
             Room.Broadcast(
                 new SScoreTeamKillAckMessage(new Score2Dto(killer.RoomInfo.PeerId, target.RoomInfo.PeerId,
@@ -175,6 +178,7 @@ namespace Netsphere.Game.GameRules
         public virtual void OnScoreSuicide(Player plr)
         {
             plr.RoomInfo.Stats.Deaths++;
+            plr.TotalDeaths++;
             Room.Broadcast(new SScoreSuicideAckMessage(plr.RoomInfo.PeerId, AttackAttribute.KillOneSelf));
         }
 
@@ -276,6 +280,20 @@ namespace Netsphere.Game.GameRules
 
                     foreach (var plr in Room.TeamManager.Players.Where(plr => plr.RoomInfo.State != PlayerState.Lobby))
                         plr.RoomInfo.State = PlayerState.Waiting;
+
+                    if (Room.TeamManager.Values.Any())
+                    {
+                        var maxScore = Room.TeamManager.Values.Max(t => t.Score);
+                        var winnerTeam = Room.TeamManager.Values.First(t => t.Score == maxScore).Team;
+                        foreach (var plr in Room.TeamManager.PlayersPlaying.ToArray())
+                        {
+                            plr.TotalMatches++;
+                            if (plr.RoomInfo.Team != null && plr.RoomInfo.Team.Team == winnerTeam)
+                                plr.TotalWins++;
+                            else
+                                plr.TotalLosses++;
+                        }
+                    }
 
                     Room.Broadcast(new SChangeStateAckMessage(GameState.Result));
                     Room.BroadcastBriefing(true);

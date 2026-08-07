@@ -26,6 +26,11 @@ namespace Netsphere
         private uint _ap;
         private uint _coins1;
         private uint _coins2;
+        private uint _totalMatches;
+        private uint _totalWins;
+        private uint _totalLosses;
+        private uint _totalKills;
+        private uint _totalDeaths;
 
         #region Properties
 
@@ -133,6 +138,31 @@ namespace Netsphere
                 NeedsToSave = true;
             }
         }
+        public uint TotalMatches
+        {
+            get { return _totalMatches; }
+            set { _totalMatches = value; NeedsToSave = true; }
+        }
+        public uint TotalWins
+        {
+            get { return _totalWins; }
+            set { _totalWins = value; NeedsToSave = true; }
+        }
+        public uint TotalLosses
+        {
+            get { return _totalLosses; }
+            set { _totalLosses = value; NeedsToSave = true; }
+        }
+        public uint TotalKills
+        {
+            get { return _totalKills; }
+            set { _totalKills = value; NeedsToSave = true; }
+        }
+        public uint TotalDeaths
+        {
+            get { return _totalDeaths; }
+            set { _totalDeaths = value; NeedsToSave = true; }
+        }
 
         #endregion
 
@@ -147,6 +177,11 @@ namespace Netsphere
             _ap = (uint)dto.AP;
             _coins1 = (uint)dto.Coins1;
             _coins2 = (uint)dto.Coins2;
+            _totalMatches = (uint)dto.TotalMatches;
+            _totalWins = (uint)dto.TotalWins;
+            _totalLosses = (uint)dto.TotalLosses;
+            _totalKills = (uint)dto.TotalKills;
+            _totalDeaths = (uint)dto.TotalDeaths;
 
             Settings = new PlayerSettingManager(this, dto);
             DenyManager = new DenyManager(this, dto);
@@ -356,6 +391,11 @@ namespace Netsphere
                         AP = (int)AP,
                         Coins1 = (int)Coins1,
                         Coins2 = (int)Coins2,
+                        TotalMatches = (int)TotalMatches,
+                        TotalWins = (int)TotalWins,
+                        TotalLosses = (int)TotalLosses,
+                        TotalKills = (int)TotalKills,
+                        TotalDeaths = (int)TotalDeaths,
                         CurrentCharacterSlot = CharacterManager.CurrentSlot
                     });
                     NeedsToSave = false;
