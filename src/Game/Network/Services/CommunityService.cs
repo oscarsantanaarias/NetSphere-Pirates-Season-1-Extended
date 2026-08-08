@@ -349,7 +349,8 @@ namespace Netsphere.Network.Services
         private const int CombiTextCap = 32;
         private const uint WireCombiRequesting = 1;
         private const uint WireCombiAccepted = 2;
-        private const uint WireCombiInbox = 3;
+        private const uint WireCombiInbox = 2;
+        private const uint WireCombiActive = 3;
         private const int AckCombiAdd = 0;
         private const int AckCombiDelete = 1;
         private const int AckCombiAccept = 2;
@@ -543,48 +544,21 @@ namespace Netsphere.Network.Services
                 if (string.IsNullOrWhiteSpace(otherNick))
                     otherNick = "Unknown";
 
-                PushCombiAck(me, 0, AckCombiAccept, BuildCombiDto(otherId, row.Exp, row.Battle, row.MatchCount, row.Win, row.Defeat, WireCombiAccepted, row.CombiName ?? "", otherNick, row.CombiDate ?? ""));
+                PushCombiAck(me, 0, AckCombiAccept, BuildCombiDto(otherId, row.Exp, row.Battle, row.MatchCount, row.Win, row.Defeat, WireCombiActive, row.CombiName ?? "", otherNick, row.CombiDate ?? ""));
                 SendCombiList(me);
 
                 var other = GameServer.Instance.PlayerManager[otherId];
                 if (other != null)
                 {
-                    PushCombiAck(other, 0, AckCombiAccept, BuildCombiDto((ulong)me.Account.Id, row.Exp, row.Battle, row.MatchCount, row.Win, row.Defeat, WireCombiAccepted, row.CombiName ?? "", me.Account.Nickname ?? "", row.CombiDate ?? ""));
+                    PushCombiAck(other, 0, AckCombiAccept, BuildCombiDto((ulong)me.Account.Id, row.Exp, row.Battle, row.MatchCount, row.Win, row.Defeat, WireCombiActive, row.CombiName ?? "", me.Account.Nickname ?? "", row.CombiDate ?? ""));
                     SendCombiList(other);
                 }
                 return;
             }
 
+            // decline combi: no se notifica, queda pendiente para re-popup
             if (verb == 3)
             {
-                CombiRowDto row;
-                using (var db = GameDatabase.Open())
-                {
-                    row = FindCombiFor(db, me.Account.Id, targetValue);
-                    if (row == null)
-                    {
-                        SendCombiList(me);
-                        return;
-                    }
-                    db.Delete(row);
-                }
-
-                var ownerId = (ulong)row.PlayerId;
-                var mateId = (ulong)row.CombiPlayerId;
-                var otherId = ownerId == (ulong)me.Account.Id ? mateId : ownerId;
-                var otherNick = NicknameOf(otherId);
-                if (string.IsNullOrWhiteSpace(otherNick))
-                    otherNick = "Unknown";
-
-                PushCombiAck(me, 0, AckCombiDeny, BuildCombiDto(otherId, 0, 0, 0, 0, 0, 0, row.CombiName ?? "", otherNick, row.CombiDate ?? ""));
-                SendCombiList(me);
-
-                var other = GameServer.Instance.PlayerManager[otherId];
-                if (other != null)
-                {
-                    PushCombiAck(other, 0, AckCombiDeny, BuildCombiDto((ulong)me.Account.Id, 0, 0, 0, 0, 0, 0, row.CombiName ?? "", me.Account.Nickname ?? "", row.CombiDate ?? ""));
-                    SendCombiList(other);
-                }
                 return;
             }
 
@@ -663,7 +637,7 @@ namespace Netsphere.Network.Services
                 });
             }
 
-            PushCombiAck(me, 0, AckCombiAdd, BuildCombiDto(targetId, 0, 0, 0, 0, 0, WireCombiRequesting, combiTitle, targetNick, stamp));
+            PushCombiAck(me, 0, AckCombiAdd, BuildCombiDto(targetId, 0, 0, 0, 0, 0, WireCombiActive, combiTitle, targetNick, stamp));
             SendCombiList(me);
 
             var targetLive = GameServer.Instance.PlayerManager[targetId];
