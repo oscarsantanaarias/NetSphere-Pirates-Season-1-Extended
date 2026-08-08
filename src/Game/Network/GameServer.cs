@@ -415,7 +415,7 @@ namespace Netsphere.Network
                     if (src.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing))
                         return GameState.Playing;
 
-                    throw new InvalidOperationException();
+                    return GameState.Waiting;
                 });
 
             Mapper.Register<Room, EnterRoomInfoDto>()
@@ -442,7 +442,7 @@ namespace Netsphere.Network
                     if (src.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing))
                         return GameState.Playing;
 
-                    throw new InvalidOperationException();
+                    return GameState.Waiting;
                 })
                 .Function(dest => dest.TimeState, src =>
                 {
