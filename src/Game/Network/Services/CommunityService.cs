@@ -418,7 +418,7 @@ namespace Netsphere.Network.Services
             using (var db = GameDatabase.Open())
             {
                 rows = db.Find<CombiRowDto>(s => s
-                    .Where($"({nameof(CombiRowDto.PlayerId):C} = @Me OR {nameof(CombiRowDto.CombiPlayerId):C} = @Me) AND ({nameof(CombiRowDto.State):C} = 0 OR {nameof(CombiRowDto.State):C} = 1)")
+                    .Where($"({nameof(CombiRowDto.PlayerId):C} = @Me OR {nameof(CombiRowDto.CombiPlayerId):C} = @Me) AND {nameof(CombiRowDto.State):C} = 1")
                     .WithParameters(new { Me = (int)p.Account.Id })).ToArray();
             }
 
@@ -556,9 +556,25 @@ namespace Netsphere.Network.Services
                 return;
             }
 
-            // decline combi: no se notifica, queda pendiente para re-popup
+            // decline combi: avisa "no aceptado" al que pidio y borra el pendiente
             if (verb == 3)
             {
+                CombiRowDto row;
+                using (var db = GameDatabase.Open())
+                {
+                    row = FindCombiFor(db, me.Account.Id, targetValue);
+                    if (row == null)
+                        return;
+                    db.Delete(row);
+                }
+
+                var ownerId = (ulong)row.PlayerId;
+                var mateId = (ulong)row.CombiPlayerId;
+                var otherId = ownerId == (ulong)me.Account.Id ? mateId : ownerId;
+
+                var other = GameServer.Instance.PlayerManager[otherId];
+                if (other != null)
+                    PushCombiAck(other, 0, AckCombiDeny, BuildCombiDto((ulong)me.Account.Id, 0, 0, 0, 0, 0, WireCombiActive, row.CombiName ?? "", me.Account.Nickname ?? "", row.CombiDate ?? ""));
                 return;
             }
 
