@@ -15,7 +15,6 @@ namespace Netsphere
         public PlayerState State { get; set; }
         public PlayerGameMode Mode { get; set; }
         public bool IsReady { get; set; }
-        public bool HasLoaded { get; set; }
 
         public TimeSpan PlayTime { get; set; }
         public TimeSpan[] CharacterPlayTime { get; set; } = { TimeSpan.Zero, TimeSpan.Zero, TimeSpan.Zero };
@@ -28,7 +27,6 @@ namespace Netsphere
                 CharacterPlayTime[i] = TimeSpan.Zero;
             
             IsReady = false;
-            HasLoaded = false;
         }
     }
 }

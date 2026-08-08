@@ -28,10 +28,7 @@ namespace Netsphere.Game.GameRules
             _captainHelper = new CaptainHelper(room);
 
             StateMachine.Configure(GameRuleState.Waiting)
-                .PermitIf(GameRuleStateTrigger.StartPrepare, GameRuleState.Preparing, CanStartGame);
-
-            StateMachine.Configure(GameRuleState.Preparing)
-                .Permit(GameRuleStateTrigger.StartGame, GameRuleState.Neutral);
+                .PermitIf(GameRuleStateTrigger.StartGame, GameRuleState.Neutral, CanStartGame);
 
             StateMachine.Configure(GameRuleState.Neutral)
                 .SubstateOf(GameRuleState.Playing)

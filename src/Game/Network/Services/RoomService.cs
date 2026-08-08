@@ -291,21 +291,10 @@ namespace Netsphere.Network.Services
             var plr = session.Player;
             var stateMachine = plr.Room.GameRuleManager.GameRule.StateMachine;
 
-            if (stateMachine.CanFire(GameRuleStateTrigger.StartPrepare))
-                stateMachine.Fire(GameRuleStateTrigger.StartPrepare);
+            if (stateMachine.CanFire(GameRuleStateTrigger.StartGame))
+                stateMachine.Fire(GameRuleStateTrigger.StartGame);
             else
                 session.SendAsync(new SEventMessageAckMessage(GameEventMessage.CantStartGame, 0, 0, 0, ""));
-        }
-
-        [MessageHandler(typeof(CBeginResponeReqMessage))]
-        public void CBeginResponeReq(GameSession session)
-        {
-            var plr = session.Player;
-            if (plr?.Room == null)
-                return;
-
-            System.Console.WriteLine($"[LOADING-TEST] CBeginResponeReq (20041) acct={plr.Account.Id}");
-            plr.RoomInfo.HasLoaded = true;
         }
 
         [MessageHandler(typeof(CReadyRoundReqMessage))]
@@ -321,9 +310,6 @@ namespace Netsphere.Network.Services
         public void CEventMessageReq(GameSession session, CEventMessageReqMessage message)
         {
             var plr = session.Player;
-            System.Console.WriteLine($"[LOADING-TEST] CEventMessageReq (20007) Event={message.Event} acct={plr.Account.Id}");
-            if (message.Event == GameEventMessage.StartGame)
-                plr.RoomInfo.HasLoaded = true;
             plr.Room.Broadcast(new SEventMessageAckMessage(message.Event, session.Player.Account.Id, message.Unk1, message.Value, ""));
             //if (message.Event == GameEventMessage.BallReset && plr == plr.Room.Host)
             //{
@@ -929,7 +915,6 @@ namespace Netsphere.Network.Services
 
             var Arcade = ((ArcadeGameRule)room.GameRuleManager.GameRule);
 
-            plr.RoomInfo.HasLoaded = true;
             Arcade.OnLoadingOk(plr);
         }
 
