@@ -304,6 +304,7 @@ namespace Netsphere.Network.Services
             if (plr?.Room == null)
                 return;
 
+            System.Console.WriteLine($"[LOADING-TEST] CBeginResponeReq (20041) acct={plr.Account.Id}");
             plr.RoomInfo.HasLoaded = true;
         }
 
@@ -320,6 +321,9 @@ namespace Netsphere.Network.Services
         public void CEventMessageReq(GameSession session, CEventMessageReqMessage message)
         {
             var plr = session.Player;
+            System.Console.WriteLine($"[LOADING-TEST] CEventMessageReq (20007) Event={message.Event} acct={plr.Account.Id}");
+            if (message.Event == GameEventMessage.StartGame)
+                plr.RoomInfo.HasLoaded = true;
             plr.Room.Broadcast(new SEventMessageAckMessage(message.Event, session.Player.Account.Id, message.Unk1, message.Value, ""));
             //if (message.Event == GameEventMessage.BallReset && plr == plr.Room.Host)
             //{

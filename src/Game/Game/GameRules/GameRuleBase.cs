@@ -12,8 +12,20 @@ namespace Netsphere.Game.GameRules
         private static readonly TimeSpan PreResultWaitTime = TimeSpan.FromSeconds(9);
         private static readonly TimeSpan HalfTimeWaitTime = TimeSpan.FromSeconds(24);
         private static readonly TimeSpan ResultWaitTime = TimeSpan.FromSeconds(14);
-        private static readonly TimeSpan LoadingDeadline = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan LoadingDeadline = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan StartCountdownLength = TimeSpan.FromMilliseconds(3500);
         internal bool notInitialBriefing;
+
+        private GameStartState PrepareState;
+        private TimeSpan GameStartTime;
+
+        private enum GameStartState
+        {
+            Loading,
+            Countdown,
+            ReadyToStart,
+            Playing
+        }
 
         public abstract GameRule GameRule { get; }
         public Room Room { get; }
@@ -69,13 +81,55 @@ namespace Netsphere.Game.GameRules
 
             if (StateMachine.IsInState(GameRuleState.Preparing))
             {
-                var required = Room.TeamManager.Players.Count(plr => plr.RoomInfo.IsReady || Room.Master == plr);
-                var loaded = Room.TeamManager.Players.Count(plr => plr.RoomInfo.HasLoaded);
-
-                if ((required > 0 && loaded >= required) || RoundTime >= LoadingDeadline)
+                switch (PrepareState)
                 {
-                    RoundTime = TimeSpan.Zero;
-                    StateMachine.Fire(GameRuleStateTrigger.StartGame);
+                    case GameStartState.Loading:
+                        if (RoundTime > LoadingDeadline)
+                        {
+                            foreach (var stuck in Room.TeamManager.Players
+                                .Where(x => (x.RoomInfo.IsReady || Room.Master == x) && !x.RoomInfo.HasLoaded)
+                                .ToArray())
+                            {
+                                System.Console.WriteLine($"[LOADING-TEST] deadline kick acct={stuck.Account.Id} roundTime={RoundTime.TotalSeconds:0.0}s");
+                                stuck.RoomInfo.IsReady = false;
+                                Room.Leave(stuck);
+                            }
+                        }
+
+                        var required = Room.TeamManager.Players.Count(x => x.RoomInfo.IsReady || Room.Master == x);
+                        var loaded = Room.TeamManager.Players.Count(x => x.RoomInfo.HasLoaded);
+
+                        if ((required > 0 && loaded >= required) || RoundTime > LoadingDeadline)
+                        {
+                            System.Console.WriteLine($"[LOADING-TEST] all loaded gate open loaded={loaded} required={required} roundTime={RoundTime.TotalSeconds:0.0}s");
+                            GameStartTime = RoundTime;
+
+                            if (GameRule == GameRule.Chaser || GameRule == GameRule.Practice || GameRule == GameRule.Arcade)
+                            {
+                                PrepareState = GameStartState.ReadyToStart;
+                            }
+                            else
+                            {
+                                PrepareState = GameStartState.Countdown;
+                                foreach (var ready in Room.TeamManager.Players.Where(x => x.RoomInfo.HasLoaded))
+                                    ready.Session.SendAsync(new SChangeSubStateAckMessage(GameTimeState.StartGameCounter));
+                            }
+                        }
+                        break;
+
+                    case GameStartState.Countdown:
+                        if ((RoundTime - GameStartTime).TotalMilliseconds > StartCountdownLength.TotalMilliseconds + 500)
+                            PrepareState = GameStartState.ReadyToStart;
+                        break;
+
+                    case GameStartState.ReadyToStart:
+                        if (StateMachine.CanFire(GameRuleStateTrigger.StartGame))
+                        {
+                            RoundTime = TimeSpan.Zero;
+                            PrepareState = GameStartState.Playing;
+                            StateMachine.Fire(GameRuleStateTrigger.StartGame);
+                        }
+                        break;
                 }
             }
 
@@ -269,6 +323,7 @@ namespace Netsphere.Game.GameRules
             switch (transition.Destination)
             {
                 case GameRuleState.Preparing:
+                    PrepareState = GameStartState.Loading;
                     foreach (var plr in Room.TeamManager.Players)
                         plr.RoomInfo.HasLoaded = false;
 
@@ -283,6 +338,7 @@ namespace Netsphere.Game.GameRules
                     {
                         plr.Session.SendAsync(new SBeginRoundAckMessage());
                     }
+                    System.Console.WriteLine("[LOADING-TEST] Preparing: sent SBeginRoundAck, waiting for loading");
                     break;
 
                 //case GameRuleState.FullGame:
