@@ -1,13 +1,10 @@
 using System.Net;
 using DotNetty.Transport.Channels;
-using NLog;
 
 namespace ProudNet.Handlers
 {
     internal class ConnectionThrottle : ChannelHandlerAdapter
     {
-        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
         private readonly ProudServer _server;
         private IPAddress _ip;
         private bool _counted;
@@ -23,7 +20,6 @@ namespace ProudNet.Handlers
 
             if (!_server.TryAddConnection(_ip))
             {
-                Logger.Warn($"Too many connections from {_ip}, refusing (cap {ProudServer.MaxConnectionsPerIp})");
                 context.CloseAsync();
                 return;
             }

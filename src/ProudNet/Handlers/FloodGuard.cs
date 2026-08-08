@@ -1,6 +1,5 @@
 using System;
 using DotNetty.Transport.Channels;
-using NLog;
 
 namespace ProudNet.Handlers
 {
@@ -8,8 +7,6 @@ namespace ProudNet.Handlers
     {
         private const int WindowMs = 1000;
         private const int MaxMessagesPerWindow = 1000;
-
-        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         private int _windowStart = Environment.TickCount;
         private int _count;
@@ -29,7 +26,6 @@ namespace ProudNet.Handlers
 
             if (++_count > MaxMessagesPerWindow)
             {
-                Logger.Warn($"Flood from {context.Channel.RemoteAddress} exceeded {MaxMessagesPerWindow} frames/s, closing");
                 context.CloseAsync();
                 return;
             }
