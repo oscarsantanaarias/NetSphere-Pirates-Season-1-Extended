@@ -12,7 +12,7 @@ namespace Netsphere.Game.GameRules
         private static readonly TimeSpan PreResultWaitTime = TimeSpan.FromSeconds(9);
         private static readonly TimeSpan HalfTimeWaitTime = TimeSpan.FromSeconds(24);
         private static readonly TimeSpan ResultWaitTime = TimeSpan.FromSeconds(14);
-        private static readonly TimeSpan StartCountdownLength = TimeSpan.FromMilliseconds(3500);
+        private static readonly TimeSpan LoadingDeadline = TimeSpan.FromSeconds(30);
         internal bool notInitialBriefing;
 
         public abstract GameRule GameRule { get; }
@@ -69,14 +69,13 @@ namespace Netsphere.Game.GameRules
 
             if (StateMachine.IsInState(GameRuleState.Preparing))
             {
-                if (RoundTime >= StartCountdownLength)
+                var required = Room.TeamManager.Players.Count(plr => plr.RoomInfo.IsReady || Room.Master == plr);
+                var loaded = Room.TeamManager.Players.Count(plr => plr.RoomInfo.HasLoaded);
+
+                if ((required > 0 && loaded >= required) || RoundTime >= LoadingDeadline)
                 {
                     RoundTime = TimeSpan.Zero;
                     StateMachine.Fire(GameRuleStateTrigger.StartGame);
-                }
-                else
-                {
-                    Room.Broadcast(new SChangeSubStateAckMessage(GameTimeState.StartGameCounter));
                 }
             }
 
@@ -269,6 +268,23 @@ namespace Netsphere.Game.GameRules
             }
             switch (transition.Destination)
             {
+                case GameRuleState.Preparing:
+                    foreach (var plr in Room.TeamManager.Players)
+                        plr.RoomInfo.HasLoaded = false;
+
+                    foreach (
+                        var plr in
+                            Room.TeamManager.Values.SelectMany(
+                                team =>
+                                    team.Values.Where(
+                                        plr =>
+                                            plr.RoomInfo.IsReady || Room.Master == plr ||
+                                            plr.RoomInfo.Mode == PlayerGameMode.Spectate)))
+                    {
+                        plr.Session.SendAsync(new SBeginRoundAckMessage());
+                    }
+                    break;
+
                 //case GameRuleState.FullGame:
                 case GameRuleState.Neutral:
                     GameTime = TimeSpan.Zero;
@@ -287,7 +303,6 @@ namespace Netsphere.Game.GameRules
                         plr.RoomInfo.State = plr.RoomInfo.Mode == PlayerGameMode.Normal
                             ? PlayerState.Alive
                             : PlayerState.Spectating;
-                        plr.Session.SendAsync(new SBeginRoundAckMessage());
                     }
 
                     /*Room.BroadcastBriefing(); //old
@@ -322,7 +337,6 @@ namespace Netsphere.Game.GameRules
                         plr.RoomInfo.State = plr.RoomInfo.Mode == PlayerGameMode.Normal
                             ? PlayerState.Alive
                             : PlayerState.Spectating;
-                        plr.Session.SendAsync(new SBeginRoundAckMessage());
                     }
 
                     Room.BroadcastBriefing();

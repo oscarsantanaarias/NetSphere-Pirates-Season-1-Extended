@@ -297,6 +297,16 @@ namespace Netsphere.Network.Services
                 session.SendAsync(new SEventMessageAckMessage(GameEventMessage.CantStartGame, 0, 0, 0, ""));
         }
 
+        [MessageHandler(typeof(CBeginResponeReqMessage))]
+        public void CBeginResponeReq(GameSession session)
+        {
+            var plr = session.Player;
+            if (plr?.Room == null)
+                return;
+
+            plr.RoomInfo.HasLoaded = true;
+        }
+
         [MessageHandler(typeof(CReadyRoundReqMessage))]
         public void CReadyRoundReq(GameSession session)
         {
@@ -915,6 +925,7 @@ namespace Netsphere.Network.Services
 
             var Arcade = ((ArcadeGameRule)room.GameRuleManager.GameRule);
 
+            plr.RoomInfo.HasLoaded = true;
             Arcade.OnLoadingOk(plr);
         }
 
