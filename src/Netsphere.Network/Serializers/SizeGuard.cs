@@ -11,7 +11,7 @@ namespace Netsphere.Network.Serializers
     // The length is checked against two things now: a hard ceiling no real message comes close
     // to, and what is actually left in the buffer. The second one is what makes it exact, an
     // array of a hundred entries cannot be announced in a packet that has ten bytes left.
-    internal static class SizeGuard
+    public static class SizeGuard
     {
         public const int MaxArrayLength = 4096;
 
