@@ -196,6 +196,8 @@
     {
         Normal = 1,
         Spectate = 2,
+
+        Observer = 3,
     }
 
     public enum PlayerState : byte

@@ -28,6 +28,7 @@ namespace Netsphere
 
         private readonly ConcurrentDictionary<ulong, Player> _players = new ConcurrentDictionary<ulong, Player>();
         private readonly ConcurrentDictionary<ulong, object> _kickedPlayers = new ConcurrentDictionary<ulong, object>();
+        private readonly ConcurrentDictionary<ulong, byte> _peerIdSeq = new ConcurrentDictionary<ulong, byte>();
         private readonly TimeSpan _hostUpdateTime = TimeSpan.FromSeconds(30);
         private readonly TimeSpan _changingRulesTime = TimeSpan.FromSeconds(5);
 
@@ -64,7 +65,7 @@ namespace Netsphere
         protected virtual void OnPlayerJoining(RoomPlayerEventArgs e)
         {
             PlayerJoining?.Invoke(this, e);
-            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()));
+            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()), true);
             RoomManager.Channel.Broadcast(new SUserDataAckMessage(e.Player.Map<Player, UserDataDto>()));
         }
 
@@ -77,14 +78,14 @@ namespace Netsphere
         protected virtual void OnPlayerLeft(RoomPlayerEventArgs e)
         {
             PlayerLeft?.Invoke(this, e);
-            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()));
+            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()), true);
             RoomManager.Channel.Broadcast(new SUserDataAckMessage(e.Player.Map<Player, UserDataDto>()));
         }
 
         protected virtual void OnStateChanged()
         {
             StateChanged?.Invoke(this, EventArgs.Empty);
-            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()));
+            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()), true);
         }
 
         #endregion
@@ -164,6 +165,9 @@ namespace Netsphere
                     id++;
 
                 plr.RoomInfo.Slot = id;
+
+                var gen = _peerIdSeq.AddOrUpdate(plr.Account.Id, (byte)0, (_, prev) => (byte)(prev + 1));
+                plr.RoomInfo.PeerId = new LongPeerId(plr.Account.Id, new PeerId(gen, id, 1));
             }
 
             plr.RoomInfo.State = PlayerState.Lobby;
@@ -184,10 +188,47 @@ namespace Netsphere
             }
 
             Broadcast(new SEnteredPlayerAckMessage(plr.Map<Player, RoomPlayerDto>()));
-            plr.Session.SendAsync(new SSuccessEnterRoomAckMessage(this.Map<Room, EnterRoomInfoDto>()));
-            //plr.Session.SendAsync(new SIdsInfoAckMessage(0, plr.RoomInfo.Slot)); //edited here
-            plr.Session.SendAsync(new SIdsInfoAckMessage(1, plr.RoomInfo.Slot));
+
+            var gameRule = GameRuleManager.GameRule;
+            var enterInfo = new EnterRoomInfoDto
+            {
+                RoomId = Id,
+                MatchKey = Options.MatchKey,
+                State = gameRule.StateMachine.IsInState(GameRuleState.Waiting) ? GameState.Waiting
+                    : gameRule.StateMachine.IsInState(GameRuleState.Result) ? GameState.Result
+                    : GameState.Playing,
+                TimeState = gameRule.StateMachine.IsInState(GameRuleState.HalfTime) ? GameTimeState.HalfTime
+                    : gameRule.StateMachine.IsInState(GameRuleState.SecondHalf) ? GameTimeState.SecondHalf
+                    : gameRule.StateMachine.IsInState(GameRuleState.Neutral) ? GameTimeState.Neutral
+                    : GameTimeState.FirstHalf,
+                TimeLimit = (uint)Options.TimeLimit.TotalMilliseconds,
+                TimeSync = (uint)gameRule.RoundTime.TotalMilliseconds,
+                ScoreLimit = Options.ScoreLimit,
+                IsFriendly = Options.IsFriendly,
+                IsBalanced = Options.IsBalanced,
+                MinLevel = Options.MinLevel,
+                MaxLevel = Options.MaxLevel,
+                ItemLimit = Options.ItemLimit,
+                IsNoIntrusion = Options.IsNoIntrusion,
+                RelayEndPoint = Options.ServerEndPoint
+            };
+
+            plr.Session.SendAsync(new SSuccessEnterRoomAckMessage(enterInfo));
+            plr.Session.SendAsync(new SIdsInfoAckMessage(plr.CharacterManager.CurrentSlot, plr.RoomInfo.Slot));
             plr.Session.SendAsync(new SEnteredPlayerListAckMessage(_players.Values.Select(p => p.Map<Player, RoomPlayerDto>()).ToArray()));
+
+            foreach (var other in _players.Values)
+            {
+                if (other == plr)
+                    continue;
+
+                other.ChatSession?.SendAsync(
+                    new Netsphere.Network.Message.Chat.SUserDataAckMessage(
+                        plr.Map<Player, Netsphere.Network.Data.Chat.UserDataDto>()));
+            }
+
+            BroadcastBriefing(false, plr);
+
             OnPlayerJoining(new RoomPlayerEventArgs(plr));
         }
 
@@ -212,13 +253,11 @@ namespace Netsphere
 
             OnPlayerLeft(new RoomPlayerEventArgs(plr)); //If someone leaves, host is selected from lowestping player
 
-
             if (Players.Count == 0)
             {
                 RoomManager.Remove(this); //anti-stuck, remove if empty
                 return;
             }
-
 
                 try
             {
@@ -324,7 +363,6 @@ namespace Netsphere
                 return;
             }
 
-
             int curplayercount = 0; //anti spectator crash
             int speccount = 0;
 
@@ -350,7 +388,6 @@ namespace Netsphere
                 Master.Session.SendAsync(new SServerResultInfoAckMessage(ServerResult.FailedToRequestTask));
                 return;
             }
-
 
             _changingRulesTimer = TimeSpan.Zero;
             IsChangingRules = true;
@@ -419,7 +456,6 @@ namespace Netsphere
                 BroadcastBriefing();
             }
 
-
             #region Broadcast
 
             public void Broadcast(IGameMessage message)
@@ -440,12 +476,15 @@ namespace Netsphere
                 plr.Session.SendAsync(message);
         }
 
-        public void BroadcastBriefing(bool isResult = false)
+        public void BroadcastBriefing(bool isResult = false, Player only = null)
         {
             var gameRule = GameRuleManager.GameRule;
-            //var isResult = gameRule.StateMachine.IsInState(GameRuleState.Result);
-            Broadcast(new SBriefingAckMessage(isResult, false, gameRule.Briefing.ToArray(isResult)));
+            var message = new SBriefingAckMessage(isResult, false, gameRule.Briefing.ToArray(isResult));
 
+            if (only != null && gameRule.StateMachine.IsInState(GameRuleState.Playing))
+                only.Session.SendAsync(message);
+            else
+                Broadcast(message);
         }
         public void BroadcastBriefing(Player plr)
         {
@@ -454,10 +493,13 @@ namespace Netsphere
 
             var isPlaying = gameRule.StateMachine.IsInState(GameRuleState.Playing);
 
+            Console.WriteLine($"[intruder] {plr.Account.Nickname}: rule={gameRule.GameRule} state={gameRule.StateMachine.State} " +
+                              $"playing={isPlaying} notInitialBriefing={gameRule.notInitialBriefing} " +
+                              $"plrstate={plr.RoomInfo.State} mode={plr.RoomInfo.Mode}");
+
             if (gameRule.GameRule == GameRule.Chaser && isPlaying && gameRule.notInitialBriefing)
             {
-                //Player intruding, dont send Briefing and set as dead
-                plr.RoomInfo.State = PlayerState.Dead;
+                ((Netsphere.Game.GameRules.ChaserGameRule)gameRule).ParkIntruder(plr);
             }
 
             else
