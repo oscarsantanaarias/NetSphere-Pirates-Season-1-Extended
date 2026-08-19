@@ -335,7 +335,11 @@ namespace Netsphere.Network.Services
                 return;
             }
 
-            var gender = plr.CharacterManager.CurrentCharacter.Gender;
+            // the shop item carries Gender (None/Male/Female), the character a CharacterGender
+            // (Male/Female), and the request the same 0/1 as the character, 2 for either
+            var gender = plr.CharacterManager.CurrentCharacter.Gender == CharacterGender.Female
+                ? Gender.Female
+                : Gender.Male;
             if (message.Gender == 0)
                 gender = Gender.Male;
             else if (message.Gender == 1)
