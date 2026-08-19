@@ -23,6 +23,12 @@ namespace Netsphere.Network.Serializers
             {
                 emiter.CallDeserializerForType(length.LocalType, length);
 
+                // the length the packet claims, checked before anything is allocated
+                emiter.LoadLocal(length);
+                emiter.LoadArgument(1);
+                emiter.Call(typeof(SizeGuard).GetMethod(nameof(SizeGuard.CheckLength)));
+                emiter.StoreLocal(length);
+
                 // if(length < 1) {
                 //  value = Array.Empty<>()
                 //  return

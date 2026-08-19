@@ -162,8 +162,11 @@ namespace Netsphere.Network.Services
                 return;
             }
 
-            session.Player.PEN += item.CalculateRefund();
+            // the item goes first: paying and then removing let two refunds of the same item
+            // both get past the check above and pay twice
+            var refund = item.CalculateRefund();
             session.Player.Inventory.Remove(item);
+            session.Player.PEN += refund;
 
             await session.SendAsync(new SRefundItemAckMessage { Result = ItemRefundResult.OK, ItemId = item.Id })
                     .ConfigureAwait(false);
