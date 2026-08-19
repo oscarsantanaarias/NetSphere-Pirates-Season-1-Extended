@@ -41,7 +41,7 @@ namespace Netsphere.Commands
             if (plr == null)
                 System.Console.WriteLine(text.ToString());
             else
-                plr.SendConsoleMessage(S4Color.Green + text);
+                plr.SendConsoleMessage(S4Color.Green + text.ToString());
 
             return true;
         }
