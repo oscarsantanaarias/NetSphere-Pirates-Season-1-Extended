@@ -40,6 +40,7 @@ namespace Netsphere
         public Mailbox Mailbox { get; }
 
         public Account Account { get; set; }
+        public StatsManager stats { get; }
         public LicenseManager LicenseManager { get; }
         public CharacterManager CharacterManager { get; }
         public Inventory Inventory { get; }
@@ -149,6 +150,27 @@ namespace Netsphere
             LicenseManager = new LicenseManager(this, dto);
             Inventory = new Inventory(this, dto);
             CharacterManager = new CharacterManager(this, dto);
+
+            using (var db = GameDatabase.Open())
+            {
+                dto.DeathmatchInfo = db.Find<Netsphere.Database.Game.PlayerInfoDeathmatchDto>(x => x
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoDeathmatchDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.TouchdownInfo = db.Find<Netsphere.Database.Game.PlayerInfoTouchdownDto>(x => x
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoTouchdownDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.ChaserInfo = db.Find<Netsphere.Database.Game.PlayerInfoChaserDto>(x => x
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoChaserDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.BattleRoyalInfo = db.Find<Netsphere.Database.Game.PlayerInfoBattleRoyalDto>(x => x
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoBattleRoyalDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.CaptainInfo = db.Find<Netsphere.Database.Game.PlayerInfoCaptainDto>(x => x
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoCaptainDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+            }
+
+            stats = new StatsManager(this, dto);
 
             RoomInfo = new PlayerRoomInfo();
         }
@@ -340,6 +362,7 @@ namespace Netsphere
                     NeedsToSave = false;
                 }
 
+                stats.Save(db);
                 Settings.Save(db);
                 Inventory.Save(db);
                 CharacterManager.Save(db);
