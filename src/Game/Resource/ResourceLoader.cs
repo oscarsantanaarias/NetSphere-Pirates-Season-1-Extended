@@ -237,7 +237,8 @@ namespace Netsphere.Resource
                         MinLevel = ParseValue<byte>(levelSetting.select_condition?.min_level?.value),
                         MaxLevel = ParseValue<byte>(levelSetting.select_condition?.max_level?.value),
                         Checker = levelSetting.complet_condition?.checker_type?.value ?? "",
-                        CheckerData = levelSetting.complet_condition?.checker_type?.data ?? ""
+                        CheckerData = levelSetting.complet_condition?.checker_type?.data ?? "",
+                        Mode = baseSetting.mode_type ?? ""
                     };
                 }
             }

@@ -14,5 +14,6 @@
         public byte MaxLevel { get; set; }
         public string Checker { get; set; }
         public string CheckerData { get; set; }
+        public string Mode { get; set; }
     }
 }

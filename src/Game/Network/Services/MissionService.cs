@@ -210,10 +210,25 @@ namespace Netsphere.Network.Services
                 Advance(plr, "TCCT_WEAPON_KILL", name, 1);
         }
 
-        public static void OnGamePlayed(Player plr, int mapId)
+        public static void OnGamePlayed(Player plr, GameRule rule, int mapId)
         {
-            Advance(plr, "TCCT_ATTEND_GAME", null, 1);
-            Advance(plr, "TCCT_MAP_PLAY", mapId.ToString(), 1);
+            // a map task names the mode too, "Play Touch Down: Station 2", and the mode lives on
+            // the base_setting the task hangs from
+            Func<Resource.TaskInfo, bool> sameMode = info => info.Mode == "TMT_COMMON" || info.Mode == ModeKey(rule);
+
+            Advance(plr, "TCCT_ATTEND_GAME", null, 1, sameMode);
+            Advance(plr, "TCCT_MAP_PLAY", mapId.ToString(), 1, sameMode);
+        }
+
+        private static string ModeKey(GameRule rule)
+        {
+            switch (rule)
+            {
+                case GameRule.Touchdown: return "TMT_TOUCH_DOWN";
+                case GameRule.Deathmatch: return "TMT_DEATH_MATCH";
+                case GameRule.Chaser: return "TMT_CHASER";
+                default: return "";
+            }
         }
 
         public static void OnLicense(Player plr, ItemLicense license)
