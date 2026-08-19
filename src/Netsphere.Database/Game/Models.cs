@@ -216,7 +216,6 @@ namespace Netsphere.Database.Game
         public string CombiDate { get; set; }
         public int State { get; set; }
     }
-
     [Table("player_items")]
     public class PlayerItemDto
     {
