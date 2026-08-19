@@ -335,8 +335,11 @@ namespace Netsphere.Network.Services
                 return;
             }
 
+            Console.WriteLine($"[fumbi] tab={(message.IsWeapon ? "weapon" : "costume")} category={message.Category} held={message.HeldItemNumber} hold={message.HoldItem}");
+
             var entry = FumbiShop.Roll(message.IsWeapon,
-                message.Gender == CharacterGender.Female ? Gender.Female : Gender.Male,
+                plr.CharacterManager.CurrentCharacter.Gender,
+                message.Category,
                 FumbiShop.Selected(plr, message.HeldItemNumber),
                 message.HoldItem != 0);
             if (entry == null)
