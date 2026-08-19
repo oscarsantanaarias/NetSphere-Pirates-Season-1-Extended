@@ -335,9 +335,11 @@ namespace Netsphere.Network.Services
                 return;
             }
 
-            var gender = message.Gender == 0 ? Gender.Male
-                : message.Gender == 1 ? Gender.Female
-                : plr.CharacterManager.CurrentCharacter.Gender;
+            var gender = plr.CharacterManager.CurrentCharacter.Gender;
+            if (message.Gender == 0)
+                gender = Gender.Male;
+            else if (message.Gender == 1)
+                gender = Gender.Female;
 
             var entry = FumbiShop.Roll(message.IsWeapon, gender,
                 FumbiShop.Selected(plr, message.HeldItemNumber),
