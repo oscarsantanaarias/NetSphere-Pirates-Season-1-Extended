@@ -41,7 +41,10 @@ namespace Netsphere.Network
 
                     .RegisterRule<CLoginReqMessage>(MustNotBeLoggedIn)
                     .RegisterRule<CSetUserDataReqMessage>(MustBeLoggedIn)
-                    .RegisterRule<CGetUserDataReqMessage>(MustBeLoggedIn, MustBeInChannel)
+                    // the client asks for its own data right after the chat login, before it has
+                    // picked a channel, and MustBeInChannel threw it away. That request is the one
+                    // that fills My Info, and it never asks twice
+                    .RegisterRule<CGetUserDataReqMessage>(MustBeLoggedIn)
                     .RegisterRule<CDenyChatReqMessage>(MustBeLoggedIn)
                     .RegisterRule<CChatMessageReqMessage>(MustBeLoggedIn, MustBeInChannel)
                     .RegisterRule<CWhisperChatMessageReqMessage>(MustBeLoggedIn, MustBeInChannel)
