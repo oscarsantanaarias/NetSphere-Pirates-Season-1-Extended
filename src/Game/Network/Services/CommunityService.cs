@@ -51,7 +51,12 @@ namespace Netsphere.Network.Services
         public async Task GetUserDataHandler(ChatSession session, CGetUserDataReqMessage message)
         {
             var plr = session.Player;
-            if (plr.Account.Id == message.AccountId)
+
+            // the client asks with a LongPeerId: the account is the low 48 bits and the peer
+            // id rides on top, so the raw value never matches anyone and My Info came back empty
+            var accountId = message.AccountId & 0x0000FFFFFFFFFFFF;
+
+            if (plr.Account.Id == accountId)
             {
                 await session.SendAsync(new SUserDataAckMessage(plr.Map<Player, UserDataDto>()))
                     .ConfigureAwait(false);
@@ -59,7 +64,7 @@ namespace Netsphere.Network.Services
             }
 
             Player target;
-            if (!plr.Channel.Players.TryGetValue(message.AccountId, out target))
+            if (plr.Channel == null || !plr.Channel.Players.TryGetValue(accountId, out target))
                 return;
 
             switch (target.Settings.Get<CommunitySetting>(nameof(UserDataDto.AllowInfoRequest)))
