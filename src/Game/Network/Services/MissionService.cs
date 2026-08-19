@@ -172,11 +172,21 @@ namespace Netsphere.Network.Services
                 return;
             }
 
+            Logger.Info()
+                .Account(session)
+                .Message($"Mission {message.TaskId} {progress}/{info.Goal} reported by the client")
+                .Write();
+
             await session.SendAsync(new STaskUpdateAckMessage { TaskId = message.TaskId, Progress = (ushort)progress })
                 .ConfigureAwait(false);
 
             if (!completed)
                 return;
+
+            Logger.Info()
+                .Account(session)
+                .Message($"Mission {message.TaskId} complete, {info.Reward} PEN")
+                .Write();
 
             plr.PEN += info.Reward;
             await session.SendAsync(new SRefreshCashInfoAckMessage { PEN = plr.PEN, AP = plr.AP })
