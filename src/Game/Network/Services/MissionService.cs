@@ -271,10 +271,20 @@ namespace Netsphere.Network.Services
                         if (plr.Room != null)
                             plr.Session.SendAsync(new STaskIngameUpdateAckMessage { TaskId = (uint)row.MissionId, Progress = (ushort)progress });
 
+                        Logger.Info()
+                            .Account(plr)
+                            .Message($"Mission {row.MissionId} {progress}/{goal} ({checker}{(data == null ? "" : " " + data)})")
+                            .Write();
+
                         if (!row.Completed)
                             continue;
 
                         plr.PEN += info.Reward;
+                        Logger.Info()
+                            .Account(plr)
+                            .Message($"Mission {row.MissionId} complete, {info.Reward} PEN")
+                            .Write();
+
                         plr.Session.SendAsync(new SRefreshCashInfoAckMessage { PEN = plr.PEN, AP = plr.AP });
                     }
                 }
