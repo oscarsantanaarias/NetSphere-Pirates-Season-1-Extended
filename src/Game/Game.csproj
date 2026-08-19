@@ -207,6 +207,7 @@
     <Compile Include="RoomCreationOptions.cs" />
     <Compile Include="RoomManager.cs" />
     <Compile Include="Shop\BuyItemInfo.cs" />
+    <Compile Include="Shop\FumbiShop.cs" />
     <Compile Include="Shop\ShopEffect.cs" />
     <Compile Include="Shop\ShopItem.cs" />
     <Compile Include="Shop\LicenseReward.cs" />
