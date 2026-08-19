@@ -304,7 +304,9 @@ namespace Netsphere
         /// <param name="message">The message to send</param>
         public void SendConsoleMessage(string message)
         {
-            Session.SendAsync(new SAdminActionAckMessage { Result = 1, Message = message });
+            // result 0 or the client prints its own "Unknown Error Code" in front of every
+            // answer the console gives
+            Session.SendAsync(new SAdminActionAckMessage { Result = 0, Message = message });
         }
 
         /// <summary>
