@@ -4,12 +4,17 @@ using BlubLib.DotNetty.Handlers.MessageHandling;
 using ExpressMapper.Extensions;
 using Netsphere.Network.Data.Chat;
 using Netsphere.Network.Message.Chat;
+using NLog;
+using NLog.Fluent;
 using ProudNet.Handlers;
 
 namespace Netsphere.Network.Services
 {
     internal class CommunityService : ProudMessageHandler
     {
+        // ReSharper disable once InconsistentNaming
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         [MessageHandler(typeof(CSetUserDataReqMessage))]
         public async Task SetUserDataHandler(ChatSession session, CSetUserDataReqMessage message)
         {
