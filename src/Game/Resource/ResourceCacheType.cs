@@ -10,6 +10,7 @@
         Exp,
         Maps,
         GameTempo,
-        ItemRewards
+        ItemRewards,
+        Tasks
     }
 }
