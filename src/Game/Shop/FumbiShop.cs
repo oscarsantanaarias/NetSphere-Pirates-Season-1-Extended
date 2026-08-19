@@ -159,6 +159,7 @@ namespace Netsphere.Shop
         private static void EnsureBuilt()
         {
             var shop = GameServer.Instance.ResourceCache.GetShop();
+            var known = GameServer.Instance.ResourceCache.GetItems();
             if (_weaponPool != null && _builtVersion == shop.Version)
                 return;
 
@@ -172,6 +173,11 @@ namespace Netsphere.Shop
 
                 foreach (var item in shop.Items.Values)
                 {
+                    // the shop table carries item numbers the client has never heard of,
+                    // and its slot draws nothing for them. iteminfo.x7 is the truth here
+                    if (!known.ContainsKey(item.ItemNumber))
+                        continue;
+
                     if (item.ItemNumber.Category != ItemCategory.Costume &&
                         item.ItemNumber.Category != ItemCategory.Weapon)
                         continue;
