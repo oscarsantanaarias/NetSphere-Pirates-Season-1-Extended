@@ -52,18 +52,13 @@ namespace Netsphere.Network.Services
         {
             var plr = session.Player;
 
-            // the client asks with a LongPeerId: the account is the low 48 bits and the peer
-            // id rides on top, so the raw value never matches anyone and My Info came back empty
+            // inside a room the client asks with a LongPeerId, the account in the low 48 bits
+            // and the peer id on top, so the raw value matched nobody
             var accountId = message.AccountId & 0x0000FFFFFFFFFFFF;
 
             if (plr.Account.Id == accountId)
             {
-                // answered with the very id he asked with, peer id included. My Info compares
-                // it against what it sent and drops the reply when it comes back stripped
-                var mine = plr.Map<Player, UserDataDto>();
-                mine.AccountId = message.AccountId;
-
-                await session.SendAsync(new SUserDataAckMessage(mine))
+                await session.SendAsync(new SUserDataAckMessage(plr.Map<Player, UserDataDto>()))
                     .ConfigureAwait(false);
                 return;
             }
