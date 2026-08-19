@@ -287,9 +287,9 @@ namespace Netsphere.Network.Message.Game
         [BlubMember(0)]
         public bool IsWeapon { get; set; }
 
-        // the sub tab the page is on: Head, Shirt, Pants, Glove, Shoes
+        // CharacterGender, only meaningful on the costume tab
         [BlubMember(1)]
-        public byte Category { get; set; }
+        public CharacterGender Gender { get; set; }
 
         [BlubMember(2)]
         public byte HoldItem { get; set; }
