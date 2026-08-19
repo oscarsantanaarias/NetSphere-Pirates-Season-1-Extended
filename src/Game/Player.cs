@@ -60,6 +60,10 @@ namespace Netsphere
 
         internal bool SentPlayerList { get; set; }
 
+        // set while his user data says he is inside the tutorial, so the reward can be paid
+        // when he comes back out of it
+        public bool InTutorial { get; set; }
+
         public byte TutorialState
         {
             get { return _tutorialState; }

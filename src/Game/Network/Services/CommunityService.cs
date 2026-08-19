@@ -28,6 +28,37 @@ namespace Netsphere.Network.Services
                     .ConfigureAwait(false);
             }
 
+            // the tutorial runs entirely on the client, it sends no packet of its own, and the
+            // only thing that reaches us is the room id of this update: 0xFFFFFFFD while he is
+            // inside it. So the prize is paid when he walks back out, once, and the state is
+            // written so the client stops asking on every login
+            const uint tutorialRoomId = 0xFFFFFFFD;
+            const uint tutorialReward = 5000;
+            const byte tutorialDone = 2;
+
+            if (message.UserData.RoomId == tutorialRoomId)
+            {
+                plr.InTutorial = true;
+            }
+            else if (plr.InTutorial)
+            {
+                plr.InTutorial = false;
+
+                if (plr.TutorialState != tutorialDone)
+                {
+                    plr.TutorialState = tutorialDone;
+                    plr.PEN += tutorialReward;
+                    plr.Save();
+
+                    Logger.Info()
+                        .Account(session)
+                        .Message($"Tutorial done, {tutorialReward} PEN")
+                        .Write();
+
+                    plr.Session?.SendAsync(new Netsphere.Network.Message.Game.SRefreshCashInfoAckMessage(plr.PEN, plr.AP));
+                }
+            }
+
             // Save settings if any of them changed
             var settings = plr.Settings;
             var name = nameof(UserDataDto.AllowCombiInvite);
