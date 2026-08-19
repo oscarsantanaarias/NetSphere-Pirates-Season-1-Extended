@@ -28,7 +28,8 @@ namespace ProudNet
         internal bool UdpEnabled { get; set; }
         internal ushort UdpSessionId { get; set; }
         internal Crypt Crypt { get; set; }
-        internal DateTime LastSpeedHackDetectorPing { get; set; }
+        // read from the game server to spot a client that stopped answering
+        public DateTime LastSpeedHackDetectorPing { get; internal set; }
         internal AsyncManualResetEvent HandhsakeEvent { get; set; }
         internal Guid HolepunchMagicNumber { get; set; }
         internal UdpSocket UdpSocket { get; set; }
