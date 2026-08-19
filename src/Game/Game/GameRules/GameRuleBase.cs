@@ -123,6 +123,7 @@ namespace Netsphere.Game.GameRules
         public virtual void OnScoreKill(Player killer, Player assist, Player target, AttackAttribute attackAttribute)
         {
             killer.RoomInfo.Stats.Kills++;
+            killer.TotalKills++;
             killer.stats.Kills++;
             //target.RoomInfo.Stats.Deaths++; //original
 
@@ -131,6 +132,7 @@ namespace Netsphere.Game.GameRules
             {
                 //assist.RoomInfo.Stats.KillAssists++;  //originaL
                 target.RoomInfo.Stats.Deaths++;
+                target.TotalDeaths++;
                 target.stats.Deaths++;
 
                 /* Room.Broadcast(
@@ -164,6 +166,7 @@ namespace Netsphere.Game.GameRules
         public virtual void OnScoreTeamKill(Player killer, Player target, AttackAttribute attackAttribute)
         {
             target.RoomInfo.Stats.Deaths++;
+            target.TotalDeaths++;
             target.stats.Deaths++;
 
             Room.Broadcast(
@@ -180,6 +183,7 @@ namespace Netsphere.Game.GameRules
         public virtual void OnScoreSuicide(Player plr)
         {
             plr.RoomInfo.Stats.Deaths++;
+            plr.TotalDeaths++;
             plr.stats.Deaths++;
             Room.Broadcast(new SScoreSuicideAckMessage(plr.RoomInfo.PeerId, AttackAttribute.KillOneSelf));
         }
@@ -350,6 +354,7 @@ namespace Netsphere.Game.GameRules
                             .FirstOrDefault();
                         foreach (var plr in Room.TeamManager.PlayersPlaying.ToArray())
                         {
+                            plr.TotalMatches++;
                             if (plr.RoomInfo.Team != null && plr.RoomInfo.Team.Team == winnerTeam)
                                 plr.stats.Won++;
                             else
