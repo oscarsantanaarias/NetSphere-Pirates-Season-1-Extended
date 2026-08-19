@@ -415,8 +415,9 @@ namespace Netsphere.Network.Services
             switch (message.Reason)
             {
                 case RoomLeaveReason.Kicked:
-                    // Only the master can kick people and kick is only allowed in the lobby
-                    if (room.Master != plr &&
+                    // it was an &&, so it only stopped you if you were neither the master nor
+                    // in the lobby: anybody could kick anybody while the room waited
+                    if (room.Master != plr ||
                         !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Waiting))
                         return;
                     break;
@@ -449,15 +450,27 @@ namespace Netsphere.Network.Services
             if (room?.GameRuleManager.GameRule.GameRule != GameRule.Chaser)
                 return;
             //Logger.ForAccount(plr.Account).Information($"Charser Unk {message.Unk}");
+            // the account id comes from the packet, so anyone could hand points to anyone,
+            // and an id that is not in the room went in as null and took the handler down
+            var rule = (ChaserGameRule)room.GameRuleManager.GameRule;
+            if (rule.Chaser != session.Player)
+                return;
+
             var target = room.Players.GetValueOrDefault(message.AccountId);
-            ((ChaserGameRule)room.GameRuleManager.GameRule).OnScoreAttack(target, message.Unk1, message.Unk2);
+            if (target == null)
+                return;
+
+            rule.OnScoreAttack(target, message.Unk1, message.Unk2);
         }
 
         [MessageHandler(typeof(CSlaughterHealPointReqMessage))]
         public void CSlaughterHealPointReqMessage(GameSession session, CSlaughterHealPointReqMessage message)
         {
             var plr = session.Player;
-            //Logger.ForAccount(plr.Account).Information($"Charser Unk {message.Unk}");
+            // no rule guards this one, so it used to be callable from outside a room
+            if (plr?.Room == null)
+                return;
+
             var resp = new SSlaughterHealPointAckMessage { AccountId = plr.Account.Id, Unk = message.Unk };
             plr.Room.Broadcast(resp);
         }
@@ -472,6 +485,12 @@ namespace Netsphere.Network.Services
             var killer = room.Players.GetValueOrDefault(message.Score.Killer.AccountId);
             if (killer == null)
                 return;
+
+            // both ids ride in the packet, so a client could hand kills to anybody. the one
+            // sending it has to be part of it, either the one who died or the one who killed
+            if (killer != plr && message.Score.Target.AccountId != plr.Account.Id)
+                return;
+
             killer.RoomInfo.PeerId = message.Score.Killer;
 
             //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
