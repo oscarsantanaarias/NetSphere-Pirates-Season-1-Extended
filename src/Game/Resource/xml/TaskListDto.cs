@@ -1,4 +1,4 @@
-using System.Xml.Serialization;
+﻿using System.Xml.Serialization;
 
 namespace Netsphere.Resource.xml
 {
@@ -74,6 +74,18 @@ namespace Netsphere.Resource.xml
     public class TaskCompletConditionDto
     {
         public TaskValueDto repetetion { get; set; }
+
+        public TaskCheckerDto checker_type { get; set; }
+    }
+
+    [XmlType(AnonymousType = true)]
+    public class TaskCheckerDto
+    {
+        [XmlAttribute]
+        public string value { get; set; }
+
+        [XmlAttribute]
+        public string data { get; set; }
     }
 
     [XmlType(AnonymousType = true)]

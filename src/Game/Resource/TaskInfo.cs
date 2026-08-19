@@ -1,4 +1,4 @@
-namespace Netsphere.Resource
+﻿namespace Netsphere.Resource
 {
     public class TaskInfo
     {
@@ -12,5 +12,7 @@ namespace Netsphere.Resource
         public uint Reward { get; set; }
         public byte MinLevel { get; set; }
         public byte MaxLevel { get; set; }
+        public string Checker { get; set; }
+        public string CheckerData { get; set; }
     }
 }

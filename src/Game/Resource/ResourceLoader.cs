@@ -235,7 +235,9 @@ namespace Netsphere.Resource
                         Goal = ParseValue<ushort>(levelSetting.complet_condition?.repetetion?.value),
                         Reward = ParseValue<uint>(levelSetting.reward?.pen?.value),
                         MinLevel = ParseValue<byte>(levelSetting.select_condition?.min_level?.value),
-                        MaxLevel = ParseValue<byte>(levelSetting.select_condition?.max_level?.value)
+                        MaxLevel = ParseValue<byte>(levelSetting.select_condition?.max_level?.value),
+                        Checker = levelSetting.complet_condition?.checker_type?.value ?? "",
+                        CheckerData = levelSetting.complet_condition?.checker_type?.data ?? ""
                     };
                 }
             }

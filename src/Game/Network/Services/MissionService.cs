@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -181,6 +181,218 @@ namespace Netsphere.Network.Services
             plr.PEN += info.Reward;
             await session.SendAsync(new SRefreshCashInfoAckMessage { PEN = plr.PEN, AP = plr.AP })
                 .ConfigureAwait(false);
+        }
+
+
+        // The client never advances a task by itself: the only two calls into its task manager
+        // come from the STaskUpdateAck and STaskIngameUpdateAck handlers (sub_AD87B0 / sub_AD8A10),
+        // and the CTaskNotifyReq that would report progress is only wired to the "ntask" GM console
+        // command. So the counting is ours.
+        //
+        // TCCT_ACTOR_STATE (wall jump, dodge, plasma combos) is the one kind we cannot see: those
+        // are actor states on the client and nothing reaches the server. TCCT_NEW_RECORD and
+        // TCCT_RANKING are left out too, they need the ranking tables.
+
+        public static void OnWeaponKill(Player plr, AttackAttribute weapon)
+        {
+            var name = WeaponKey(weapon);
+            if (name != null)
+                Advance(plr, "TCCT_WEAPON_KILL", name, 1);
+        }
+
+        public static void OnGamePlayed(Player plr, int mapId)
+        {
+            Advance(plr, "TCCT_ATTEND_GAME", null, 1);
+            Advance(plr, "TCCT_MAP_PLAY", mapId.ToString(), 1);
+        }
+
+        public static void OnLicense(Player plr, ItemLicense license)
+        {
+            var name = LicenseKey(license);
+            if (name != null)
+                Advance(plr, "TCCT_GET_LICENSE", name, 1);
+        }
+
+        // the goal here is the level itself, so it is done or not done, it does not count up
+        public static void OnLevelUp(Player plr)
+        {
+            Advance(plr, "TCCT_LEVEL_UP", null, 0, info =>
+            {
+                int target;
+                return int.TryParse(info.CheckerData, out target) && plr.Level >= target;
+            });
+        }
+
+        private static void Advance(Player plr, string checker, string data, int amount,
+            Func<Resource.TaskInfo, bool> extra = null)
+        {
+            if (plr?.Account == null || plr.Session == null)
+                return;
+
+            try
+            {
+                var resource = GameServer.Instance.ResourceCache.GetTasks();
+
+                using (var db = GameDatabase.Open())
+                {
+                    var rows = db.Find<PlayerMissionDto>(statement => statement
+                        .Where($"{nameof(PlayerMissionDto.PlayerId):C} = @PlayerId")
+                        .WithParameters(new { PlayerId = (int)plr.Account.Id }));
+
+                    foreach (var row in rows)
+                    {
+                        if (row.Completed)
+                            continue;
+
+                        var info = resource.FirstOrDefault(t => t.Id == row.MissionId);
+                        if (info == null || info.Checker != checker)
+                            continue;
+
+                        if (data != null && info.CheckerData != data)
+                            continue;
+
+                        if (extra != null && !extra(info))
+                            continue;
+
+                        var goal = info.Goal == 0 ? 1 : info.Goal;
+                        var progress = amount == 0 ? goal : row.Progress + amount;
+                        if (progress > goal)
+                            progress = goal;
+
+                        if (progress == row.Progress)
+                            continue;
+
+                        row.Progress = progress;
+                        row.Completed = progress >= goal;
+                        db.Update(row);
+
+                        plr.Session.SendAsync(new STaskUpdateAckMessage { TaskId = (uint)row.MissionId, Progress = (ushort)progress });
+
+                        if (plr.Room != null)
+                            plr.Session.SendAsync(new STaskIngameUpdateAckMessage { TaskId = (uint)row.MissionId, Progress = (ushort)progress });
+
+                        if (!row.Completed)
+                            continue;
+
+                        plr.PEN += info.Reward;
+                        plr.Session.SendAsync(new SRefreshCashInfoAckMessage { PEN = plr.PEN, AP = plr.AP });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn()
+                    .Message($"Failed to advance missions for {checker}: {ex.Message}")
+                    .Write();
+            }
+        }
+
+        // the xml names the weapon, the kill only carries the attack that landed
+        private static string WeaponKey(AttackAttribute weapon)
+        {
+            switch (weapon)
+            {
+                case AttackAttribute.PlasmaSwordCritical:
+                case AttackAttribute.PlasmaSwordStandWeak:
+                case AttackAttribute.PlasmaSwordStandStrong:
+                case AttackAttribute.PlasmaSwordAttack2Weak:
+                case AttackAttribute.PlasmaSwordAttack2:
+                case AttackAttribute.PlasmaSwordJumpCritical:
+                case AttackAttribute.PlasmaSwordJump:
+                    return "ATTACKITEM_PLASMA_SWORD";
+
+                case AttackAttribute.CounterSwordCounterCritical:
+                case AttackAttribute.CounterSwordCounterAttack:
+                case AttackAttribute.CounterSwordCritical:
+                case AttackAttribute.CounterSwordAttack1:
+                case AttackAttribute.CounterSwordAttack2:
+                case AttackAttribute.CounterSwordAttack3:
+                case AttackAttribute.CounterSwordAttack4:
+                case AttackAttribute.CounterSwordJumpDash:
+                    return "ATTACKITEM_COUNTER_SWORD";
+
+                case AttackAttribute.BatSwordStandWeak:
+                case AttackAttribute.BatSwordStandStrong:
+                case AttackAttribute.BatSwordAttack2Weak:
+                case AttackAttribute.BatSwordAttack2:
+                case AttackAttribute.BatSwordCritical:
+                case AttackAttribute.BatSwordJumpCritical:
+                case AttackAttribute.BatSwordJump:
+                    return "ATTACKITEM_STORM_BAT";
+
+                case AttackAttribute.SubmachineGun:
+                    return "ATTACKITEM_SUBMACHINE_GUN";
+
+                case AttackAttribute.MachineGunLower:
+                case AttackAttribute.MachineGunMiddle:
+                case AttackAttribute.MachineGunUpper:
+                    return "ATTACKITEM_HEAVYMACHINE_GUN";
+
+                case AttackAttribute.AimedShot:
+                case AttackAttribute.AimedShot2:
+                    return "ATTACKITEM_RAIL_GUN";
+
+                case AttackAttribute.MineLauncher:
+                    return "ATTACKITEM_MINE_GUN";
+
+                case AttackAttribute.MindEnergy:
+                case AttackAttribute.MindStormAttack1:
+                case AttackAttribute.MindStormAttack2:
+                    return "ATTACKITEM_MIND_SHOCK";
+
+                case AttackAttribute.SentryGunMachineGun:
+                    return "ATTACKITEM_CENTRYGUN";
+
+                case AttackAttribute.Revolver:
+                    return "ATTACKITEM_REVOLVER";
+
+                case AttackAttribute.Revolver2:
+                    return "ATTACKITEM_REVOLVER2";
+
+                case AttackAttribute.CannonadeShot:
+                case AttackAttribute.CannonadeShot2:
+                    return "ATTACKITEM_CANNONADE";
+
+                case AttackAttribute.Mg2:
+                    return "ATTACKITEM_MG2";
+
+                case AttackAttribute.Smg3:
+                case AttackAttribute.Smg3Gun:
+                case AttackAttribute.Smg3Sword:
+                    return "ATTACKITEM_SMG3";
+
+                case AttackAttribute.Smg4:
+                    return "ATTACKITEM_SMG4";
+
+                default:
+                    return null;
+            }
+        }
+
+        private static string LicenseKey(ItemLicense license)
+        {
+            switch (license)
+            {
+                case ItemLicense.CounterSword: return "LICENSE_COUNTER_SWORD";
+                case ItemLicense.StormBat: return "LICENSE_STORM_BAT";
+                case ItemLicense.Revolver: return "LICENSE_REVOLVER";
+                case ItemLicense.SemiRifle: return "LICENSE_SEMI_RIFLE";
+                case ItemLicense.HeavymachineGun: return "LICENSE_HEAVYMACHINE_GUN";
+                case ItemLicense.GaussRifle: return "LICENSE_GAUSS_RIFLE";
+                case ItemLicense.RailGun: return "LICENSE_RAIL_GUN";
+                case ItemLicense.Cannonade: return "LICENSE_CANNONADE";
+                case ItemLicense.Sentrygun: return "LICENSE_CENTRYGUN";
+                case ItemLicense.MineGun: return "LICENSE_MINE_GUN";
+                case ItemLicense.MindEnergy: return "LICENSE_MIND_ENERGY";
+                case ItemLicense.MindShock: return "LICENSE_MIND_SHOCK";
+                case ItemLicense.Anchoring: return "LICENSE_ANCHORING";
+                case ItemLicense.Flying: return "LICENSE_FLYING";
+                case ItemLicense.Invisible: return "LICENSE_INVISIBLE";
+                case ItemLicense.Shield: return "LICENSE_SHIELD";
+                case ItemLicense.Block: return "LICENSE_BLOCK";
+                case ItemLicense.Bind: return "LICENSE_BIND";
+                default: return null;
+            }
         }
 
         // the client hardcodes "???" / "ERROR" for a slot without a task, so every slot of
