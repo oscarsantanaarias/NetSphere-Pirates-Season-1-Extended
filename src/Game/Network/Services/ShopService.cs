@@ -389,14 +389,23 @@ namespace Netsphere.Network.Services
 
             FumbiShop.SetLastRoll(plr, rolled.Id, entry.ItemNumber);
 
+            // a slot on Stop keeps what it had, which is what the help calls Resume Dance:
+            // the client sends the value it is holding and expects it back untouched
+            var color = message.HoldColor != 0 && message.HeldColor >= 0
+                ? (uint)message.HeldColor
+                : entry.Color;
+            var effect = message.HoldEffect != 0 && message.HeldEffect >= 0
+                ? (uint)message.HeldEffect
+                : 0u;
+
             await session.SendAsync(new SRandomShopItemInfoAckMessage
             {
                 Item = new RandomShopItemDto
                 {
                     Tab = tab,
                     ItemNumber = entry.ItemNumber,
-                    Effect = 0,
-                    Color = entry.Color,
+                    Effect = effect,
+                    Color = color,
                     PeriodType = entry.PeriodType,
                     Period = entry.Period
                 }
