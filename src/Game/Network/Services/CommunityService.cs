@@ -344,14 +344,6 @@ namespace Netsphere.Network.Services
                     break;
             }
         }
-        private static string NicknameOf(ulong accountId)
-        {
-            var online = GameServer.Instance.PlayerManager[accountId];
-            if (online?.Account != null)
-                return online.Account.Nickname ?? "";
-            using (var authdb = AuthDatabase.Open())
-                return authdb.Get(new AccountDto { Id = (int)accountId })?.Nickname ?? "";
-        }
 
         private const string CombiFiller = "CampoCombiNose";
         private const int CombiTextCap = 32;
