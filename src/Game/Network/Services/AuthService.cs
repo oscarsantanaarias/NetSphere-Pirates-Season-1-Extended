@@ -411,6 +411,20 @@ namespace Netsphere.Network.Services
             await session.SendAsync(new SServerResultInfoAckMessage(ServerResult.WelcomeToS4World2))
                 .ConfigureAwait(false);
 
+            // the shop version, pushed instead of waiting for the client to ask. it compares it
+            // against the four dates of its cached shop\*.s4 files and asks for the blobs when
+            // they differ, which is the only way it ever drops a stale shop. S10 does the same
+            // at the end of its login
+            var shopVersion = GameServer.Instance.ResourceCache.GetShop().Version;
+            await session.SendAsync(new SNewShopUpdateCheckAckMessage
+            {
+                Date01 = shopVersion,
+                Date02 = shopVersion,
+                Date03 = shopVersion,
+                Date04 = shopVersion,
+                Unk = 0
+            }).ConfigureAwait(false);
+
             if (plr.Inventory.Count == 0)
             {
                 IEnumerable<StartItemDto> startItems;
