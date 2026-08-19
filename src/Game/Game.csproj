@@ -111,6 +111,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Account.cs" />
+    <Compile Include="Commands\AdminCommands.cs" />
     <Compile Include="Commands\GMCommands.cs" />
     <Compile Include="Commands\HelpCommand.cs" />
     <Compile Include="Game\GameRules\ArcadeGameRule.cs" />
