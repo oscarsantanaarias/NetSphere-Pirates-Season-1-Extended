@@ -156,6 +156,7 @@ namespace Netsphere.Network
                 .Add(new GameCommands())
                 .Add(new InventoryCommands())
                 .Add(new GMCommands())
+                .Add(new AdminCommands())
                 .Add(new HelpCommand());
 
             PlayerManager = new PlayerManager();
