@@ -29,10 +29,7 @@ namespace Netsphere.Game.GameRules
 
         private Player LastChaser;
 
-        // whoever walked into a running round and is watching it out as a spectator. same
-        // thing S10 keeps in _forcedSpectators, they rejoin the match on the next round
         private readonly List<Player> _forcedSpectators = new List<Player>();
-
 
         public override GameRule GameRule => GameRule.Chaser;
         public override Briefing Briefing { get; }
@@ -91,8 +88,6 @@ namespace Netsphere.Game.GameRules
                     Chaser = null;
                     _waitingNextChaser = false;
 
-                    // the match ended before the round they were waiting for. give them their
-                    // mode back here too or they stay spectators for good
                     foreach (var spectator in _forcedSpectators.ToArray())
                     {
                         _forcedSpectators.Remove(spectator);
@@ -222,8 +217,6 @@ namespace Netsphere.Game.GameRules
             }
         }
 
-        // the briefing carries the chaser round times, a player joining mid round has no
-        // other way to learn them
         public TimeSpan ChaserRoundTime => _chaserRoundTime;
         public TimeSpan ChaserElapsed => _chaserTimer;
 
@@ -235,12 +228,6 @@ namespace Netsphere.Game.GameRules
         public void OnScoreAttack(Player plr, float unk1, float unk2)
         {
             var stats = GetRecord(plr);
-            // no Kills++ here, a hit on the chaser is an attack point and not a kill.
-            //
-            // probed live: the client reads Attack Point as 2 * SwordRanking (sword 32 showed
-            // 64 on the panel) and the Total score column as TotalScore + 2 * SwordRanking
-            // (getter sub_C19390 reads record+24 and record+376). each hit is worth 2 points,
-            // so SwordRanking counts one per hit and not the damage float the attacker sent
             stats.SwordRanking += 1;
             stats.GunRanking += unk2;
 
@@ -256,9 +243,6 @@ namespace Netsphere.Game.GameRules
                     plrInRoom.Session.SendAsync(new SSlaughterAttackPointAckMessage
                     {
                         AccountId = plr.Account.Id,
-                        // 1 and not unk1. the server counts one per hit, the client adds
-                        // whatever comes in this field, and relaying the raw float left every
-                        // board a couple of points above the record we send in the briefing
                         Unk1 = 1,
                         Unk2 = unk2 // Send gun ranking
 
@@ -297,9 +281,6 @@ namespace Netsphere.Game.GameRules
 
             if (killer == Chaser && target == Bonus)
             {
-                // base.OnScoreKill is the only place that credits the kill. catching the bonus
-                // target turns that kill into a bonus kill, it does not stack on top of it:
-                // the clients show 4 points for one catch, which is BonusKills alone
                 if (stats.Kills > 0)
                     stats.Kills--;
                 stats.BonusKills++;
@@ -309,14 +290,12 @@ namespace Netsphere.Game.GameRules
 
         }
 
-
         // Log scores for players
         private void LogScore(Player player, string phase)
         {
             var record = GetRecord(player);
             Console.WriteLine($"[{phase}] Player: {player.Account.Id}, Kills: {record.Kills}, BonusKills: {record.BonusKills}, TotalScore: {record.TotalScore}");
         }
-
 
         public override void OnScoreSuicide(Player plr)
         {
@@ -360,7 +339,6 @@ namespace Netsphere.Game.GameRules
             // Try to select a new bonus target from alive non-chaser players
             Bonus = GetBonus();
 
-
             if ( Bonus != null) {
                 Room.Broadcast(new SChangeBonusTargetAckMessage(Bonus.Account.Id));// Notify players of new bonus target
             }
@@ -377,33 +355,13 @@ namespace Netsphere.Game.GameRules
 
         }
 
-
-
-        // a player who joined while the round was running. the order is the one S10 sends on
-        // RoomIntrudeRoundReq: who the chaser is, the mode change to the whole room, the
-        // briefing with the board and the clock, and the time refresh last. no bonus target
-        // ack, that is what makes the client shout "has been dominated"
         public void ParkIntruder(Player plr)
         {
-            // dead, and the mode left alone.
-            //
-            // the state is what parks him and it travels in the briefing, but only for the
-            // players block: Briefing.WriteData writes a record for teamMgr.Players and gives
-            // teamMgr.Spectators an account id and a zero, no state at all. PlayerGameMode
-            // .Spectate moves him to the block that cannot carry the very thing that parks him,
-            // which is why every version of this that set the mode ended up with him playing.
-            //
-            // Dead walks in and waits in the death camera, Spectating is meant to hand him the
-            // observer one. both have been measured to get him into the map, they differ in the
-            // camera he lands on and in whether the client asks for the mode change itself
             plr.RoomInfo.State = PlayerState.Dead;
 
             if (!_forcedSpectators.Contains(plr))
                 _forcedSpectators.Add(plr);
 
-            // no briefing at all this time. only the enter, with the two fields that used to go
-            // out as zero: the team, which is what makes the client build his actor, and the
-            // accumulated experience, which is where his level comes from
             Room.Broadcast(new SEnterPlayerAckMessage(plr.Account.Id, plr.Account.Nickname,
                 (byte)plr.RoomInfo.Team.Team, plr.RoomInfo.Mode, (int)plr.TotalExperience));
 
@@ -414,13 +372,8 @@ namespace Netsphere.Game.GameRules
                 (int)RoundTime.TotalMilliseconds));
         }
         
-        
-
         public void RoundEnd()
         {
-            // the client shows ChaserCount plus one for the round in progress, so the counter
-            // holds the rounds already closed. incrementing it when the chaser is picked left
-            // the column one ahead of every screen until a briefing went out
             if (Chaser != null)
                 GetRecord(Chaser).ChaserCount++;
 
@@ -428,11 +381,6 @@ namespace Netsphere.Game.GameRules
             _waitingNextChaser = true;
             _nextChaserTimer = TimeSpan.Zero;
 
-            // the parked intruders get the closed board, and only them. they are not in the
-            // round, so their clients pay nobody at the end of one and their boards drift from
-            // the room the moment they walk in. a briefing to a single session touches no other
-            // camera, and theirs has no chaser set, so S2C_Briefing_21010 skips the replay of
-            // the announcement on the if (sub_A18CB0(gameRule)) that guards it
             foreach (var spectator in _forcedSpectators)
             {
                 if (spectator.Room != Room)
@@ -440,14 +388,6 @@ namespace Netsphere.Game.GameRules
 
                 spectator.Session?.SendAsync(new SBriefingAckMessage(false, false, Briefing.ToArray(false)));
             }
-
-            // no briefing here. it resynced every board, but S2C_Briefing_21010 (0x00ACB0A0)
-            // replays the chaser announcement whenever the client still has a chaser set, and
-            // the old chaser was announced on top of the new one, two chasers on screen at
-            // once. every other placement was measured and is worse: the round start and the
-            // mid round join both break the cameras, and clearing the chaser first does not
-            // help because SChangeSlaughtererAck announces by itself. silencing it needs the
-            // client side hook on Slaughter_AnnounceChaser (0x00A18CD0, isReplay == 1)
 
             //Check remaining room time against chaser round time
             var diff = Room.Options.TimeLimit - RoundTime;
@@ -464,14 +404,8 @@ namespace Netsphere.Game.GameRules
         {
             _roundComplete = false;
 
-            // this is the only place a round ever resumes, so the intermission gate lifts here.
-            // it used to lift in Update, inside the branch that waits out the intermission, and
-            // a match that ended mid wait left it raised: the next match then ran with
-            // OnScoreKill returning at its first line and not a single score ack going out
             _scoringDisabled = false;
 
-            // the round they were waiting for. mode back to normal for the whole room and a
-            // round start for them, then they are ordinary players again
             foreach (var spectator in _forcedSpectators.ToArray())
             {
                 _forcedSpectators.Remove(spectator);
@@ -483,8 +417,6 @@ namespace Netsphere.Game.GameRules
                 spectator.RoomInfo.State = PlayerState.Alive;
                 Room.Broadcast(new SPlayerGameModeChangeAckMessage(spectator.Account.Id, PlayerGameMode.Normal));
 
-                // spawn his character again on every client. without it his actor comes back
-                // to life but his camera stays in the spectator seat, watching himself move
                 Room.Broadcast(new SEnterPlayerAckMessage(spectator.Account.Id, spectator.Account.Nickname,
                     (byte)spectator.RoomInfo.Team.Team, PlayerGameMode.Normal, (int)spectator.TotalExperience));
 
@@ -542,23 +474,14 @@ namespace Netsphere.Game.GameRules
 
             NextTarget();
 
-            // no briefing here. a briefing at the start of a round leaves the clients in the
-            // watching camera, measured twice, and no ordering against the state acks fixes it.
-            // the resync lives in RoundEnd instead
-
             _waitingNextChaser = false;
         }
-
 
         public void ChaserWin()
         {
             if (_waitingNextChaser)
                 return;
 
-            // no Wins++ for the chaser. the client has a score type named TSCT_CHASER_ALLKILL
-            // for exactly this, but it never puts it on the board: a chaser who wiped a round
-            // reads 4 on every screen in the room and 9 on the screen of anyone who takes the
-            // number from a briefing. measured twice, the boards win over the name
             // Broadcast the round win message
             Room.Broadcast(new SScoreSLRoundWinAckMessage());
             RoundEnd();
@@ -569,14 +492,6 @@ namespace Netsphere.Game.GameRules
             if (_waitingNextChaser)
                 return;
 
-            // what the client puts on screen when the chaser loses the round, straight out of
-            // sub_754A10: the chaser gets nothing, and every other player gets an effect worth
-            // +5 if he died during the round and +15 if he was still standing. so the 5 of Win
-            // Point are for the round being won at all and the 10 of Survival for living
-            // through it. crediting only the survivors left everyone who died five short
-            // the clients paint it when the round runs out of time and when the chaser goes
-            // down, so both pay. the chaser walking out of the room does not, there is nothing
-            // to paint there, and that is the only call that comes in with paysOut false
             if (paysOut)
             {
                 foreach (var plr in Room.TeamManager.PlayersPlaying)
@@ -584,11 +499,6 @@ namespace Netsphere.Game.GameRules
                     if (plr == Chaser)
                         continue;
 
-                    // whoever walked in halfway through does not earn the round he walked into.
-                    // his own client pays him anyway, it has no idea he is parked, and the
-                    // briefing RoundEnd sends him right after is what takes it back off. the
-                    // rest of the room would never have seen it: score acks only ever credit
-                    // the client that receives them, everybody else's row comes from a briefing
                     if (_forcedSpectators.Contains(plr))
                         continue;
 
@@ -599,9 +509,6 @@ namespace Netsphere.Game.GameRules
                 }
             }
 
-            // to the whole room. the handler of this one (client sub_ACDF00) only plays the
-            // sound and shows the banner, it never writes the record, so the chaser and the
-            // spectators can see that the round was won without earning anything from it
             Room.Broadcast(new SScoreRoundWinAckMessage());
 
             RoundEnd();
@@ -677,8 +584,6 @@ internal class ChaserBriefing : Briefing
 
             Unk6 = 1;
 
-            // the chaser round clock. the client shows Unk4 minus Unk3, so a player joining
-            // mid round gets the real remaining time instead of a fresh round
             Unk3 = (int)gameRule.ChaserElapsed.TotalMilliseconds;
             Unk4 = (int)gameRule.ChaserRoundTime.TotalMilliseconds;
             Unk5 = (int)gameRule.ChaserRoundTime.TotalMilliseconds;
@@ -701,7 +606,6 @@ internal class ChaserBriefing : Briefing
         }
     }
 
-
     //Chaser Player Record
     internal class ChaserPlayerRecord : PlayerRecord
     {
@@ -709,8 +613,6 @@ internal class ChaserBriefing : Briefing
 
         public override uint TotalScore => GetTotalScore();
 
-        // flip this off once the mapping is written down. every field goes out with a value of
-        // its own so whatever shows up on the client names the field it came from
         public static bool ProbeFields = false;
 
         // Additional stats

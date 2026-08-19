@@ -4,7 +4,9 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using BlubLib.DotNetty.Handlers.MessageHandling;
+using ExpressMapper.Extensions;
 using Netsphere.Game.GameRules;
+using Netsphere.Network.Data.Game;
 using Netsphere.Network.Data.GameRule;
 using Netsphere.Network.Message.Game;
 using Netsphere.Network.Message.GameRule;
@@ -25,8 +27,6 @@ namespace Netsphere.Network.Services
         {
             var plr = session.Player;
 
-            // no parking here, and no touching his state: CEventMessageReq needs to find him on
-            // PlayerState.Lobby to know he is intruding, and that is where the parking happens
             plr.Room.Broadcast(new SEnterPlayerAckMessage(plr.Account.Id, plr.Account.Nickname,
                 (byte)plr.RoomInfo.Team.Team, plr.RoomInfo.Mode, (int)plr.TotalExperience));
             session.SendAsync(new SChangeMasterAckMessage(plr.Room.Master.Account.Id));
@@ -38,19 +38,12 @@ namespace Netsphere.Network.Services
                 if (other == plr)
                     continue;
 
-                // the channel player list skips whoever is inside a room (Channel.Join), so he
-                // never got their user data and his client draws them at level 1
                 plr.ChatSession?.SendAsync(
                     new Netsphere.Network.Message.Chat.SUserDataAckMessage(
                         other.Map<Player, Netsphere.Network.Data.Chat.UserDataDto>()));
 
-                // and nobody sends CAvatarChangeReq once the match is running, so their look
-                // never reaches him either and they all render naked
                 session.SendAsync(new SAvatarChangeAckMessage(BuildAvatar(other, null), Array.Empty<ChangeAvatarUnk2Dto>()));
 
-                // the same two the other way round. without them the players already inside get
-                // his SEnterPlayerAck and nothing else, so he shows up on their roster at level
-                // 1 and naked, or does not show up at all
                 other.ChatSession?.SendAsync(
                     new Netsphere.Network.Message.Chat.SUserDataAckMessage(
                         plr.Map<Player, Netsphere.Network.Data.Chat.UserDataDto>()));
@@ -299,12 +292,6 @@ namespace Netsphere.Network.Services
         {
             var plr = session.Player;
 
-            // the parking runs before the echo, never after. this echo is his green light: the
-            // client sends its event and waits for the room to confirm it before it is in the
-            // match, so anything that lands after it is too late to take him out again. holding
-            // it back altogether is no good either, he then sits in the room screen until the
-            // next round. S10 does exactly this order, OnBeforeIntrudeSpawn and only then
-            // RoomGameStartAck
             var intruding = plr.Room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing)
                             && plr.RoomInfo.State == PlayerState.Lobby;
 
@@ -319,13 +306,6 @@ namespace Netsphere.Network.Services
 
             plr.Room.Broadcast(new SEventMessageAckMessage(message.Event, session.Player.Account.Id, message.Unk1, message.Value, ""));
 
-            // he comes in dead, which is what gets the client to load the map, and the observer
-            // mode follows a few seconds later, once the death camera has settled. sending it
-            // any earlier lands while the client is still coming in and leaves him in the room
-            // screen. the mode goes on the wire only, his RoomInfo.Mode stays Normal so he keeps
-            // his row in the briefing.
-            //
-            // no briefing here either, one sent at this point undoes the parking
             if (intruding && plr.RoomInfo.State == PlayerState.Dead)
             {
                 var room = plr.Room;
@@ -373,24 +353,8 @@ namespace Netsphere.Network.Services
             plr.Room.Broadcast(new SItemsChangeAckMessage(unk1, message.Unk2));
         }
 
-        [MessageHandler(typeof(CAvatarChangeReqMessage))]
-        public void CAvatarChangeReq(GameSession session, CAvatarChangeReqMessage message)
+        private static ChangeAvatarUnk1Dto BuildAvatar(Player plr, ChangeAvatarUnk1Dto from)
         {
-            var plr = session.Player;
-
-            Logger.Debug()
-                .Account(session)
-                .Message($"Avatar sync - {JsonConvert.SerializeObject(message.Unk1, Formatting.Indented)}")
-                .Write();
-
-            if (message.Unk2.Length > 0)
-            {
-                Logger.Warn()
-                    .Account(session)
-                    .Message($"Unk2: {JsonConvert.SerializeObject(message.Unk2, Formatting.Indented)}")
-                    .Write();
-            }
-
             var @char = plr.CharacterManager.CurrentCharacter;
             var unk1 = new ChangeAvatarUnk1Dto
             {
@@ -398,13 +362,13 @@ namespace Netsphere.Network.Services
                 Skills = @char.Skills.GetItems().Select(item => item?.ItemNumber ?? 0).ToArray(),
                 Weapons = @char.Weapons.GetItems().Select(item => item?.ItemNumber ?? 0).ToArray(),
                 Costumes = new ItemNumber[(int)CostumeSlot.Max],
-                Unk5 = message.Unk1.Unk5,
-                Unk6 = message.Unk1.Unk6,
-                Unk7 = message.Unk1.Unk7,
-                Unk8 = message.Unk1.Unk8,
-                Gender = plr.CharacterManager.CurrentCharacter.Gender,
+                Unk5 = from?.Unk5 ?? Array.Empty<int>(),
+                Unk6 = from?.Unk6 ?? Array.Empty<int>(),
+                Unk7 = from?.Unk7 ?? Array.Empty<int>(),
+                Unk8 = from?.Unk8 ?? 0,
+                Gender = @char.Gender,
                 HP = plr.GetMaxHP(),
-                Unk11 = message.Unk1.Unk11
+                Unk11 = from?.Unk11 ?? 0
             };
 
             // If no item equipped use the default item the character was created with
@@ -446,6 +410,28 @@ namespace Netsphere.Network.Services
                 unk1.Costumes[(int)slot] = item;
             }
 
+            return unk1;
+        }
+
+        [MessageHandler(typeof(CAvatarChangeReqMessage))]
+        public void CAvatarChangeReq(GameSession session, CAvatarChangeReqMessage message)
+        {
+            var plr = session.Player;
+
+            Logger.Debug()
+                .Account(session)
+                .Message($"Avatar sync - {JsonConvert.SerializeObject(message.Unk1, Formatting.Indented)}")
+                .Write();
+
+            if (message.Unk2.Length > 0)
+            {
+                Logger.Warn()
+                    .Account(session)
+                    .Message($"Unk2: {JsonConvert.SerializeObject(message.Unk2, Formatting.Indented)}")
+                    .Write();
+            }
+
+            var unk1 = BuildAvatar(plr, message.Unk1);
             plr.Room.Broadcast(new SAvatarChangeAckMessage(unk1, message.Unk2));
         }
 
@@ -489,7 +475,6 @@ namespace Netsphere.Network.Services
         }
 
         #region Scores
-
 
         [MessageHandler(typeof(CSlaughterAttackPointReqMessage))]
         public void SlaughterAttackPointReq(GameSession session, CSlaughterAttackPointReqMessage message)
