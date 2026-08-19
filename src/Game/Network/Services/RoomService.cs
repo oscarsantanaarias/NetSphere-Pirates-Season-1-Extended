@@ -183,7 +183,9 @@ namespace Netsphere.Network.Services
         public void CJoinTunnelInfoReq(GameSession session)
         {
             var plr = session.Player;
-            plr.Room.Leave(plr);
+            Console.WriteLine($"[tunnel] {plr?.Account?.Nickname} sent CJoinTunnelInfoReq, room={plr?.Room?.Id}, state={plr?.RoomInfo?.State}");
+
+            plr?.Room?.Leave(plr);
         }
 
         [MessageHandler(typeof(CChangeTeamReqMessage))]
