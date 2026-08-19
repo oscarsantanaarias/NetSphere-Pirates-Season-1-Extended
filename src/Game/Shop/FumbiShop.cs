@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Netsphere.Network;
@@ -59,7 +59,7 @@ namespace Netsphere.Shop
         // shoes; the weapon tab rolls any weapon. with hold set that exact item is kept.
         // costume sub categories: 0 hair, 1 face, 2 top, 3 pants, 4 gloves, 5 shoes,
         // 6 accessories, 7 pets
-        public static FumbiRollEntry Roll(bool isWeapon, Gender gender, byte category, uint selected, bool hold)
+        public static FumbiRollEntry Roll(bool isWeapon, Gender gender, uint selected, bool hold)
         {
             EnsureBuilt();
 
@@ -67,17 +67,13 @@ namespace Netsphere.Shop
             if (!isWeapon)
                 pool = pool.FindAll(e => e.Gender == Gender.None || e.Gender == gender);
 
-            if (!isWeapon)
-            {
-                var sub = SubCategoryOf(category);
-                if (sub >= 0)
-                    pool = pool.FindAll(e => e.ItemNumber.SubCategory == sub);
-            }
-
-            if (selected != 0 && hold)
+            if (selected != 0)
             {
                 var wanted = new ItemNumber(selected);
-                pool = pool.FindAll(e => e.ItemNumber == wanted);
+                if (hold)
+                    pool = pool.FindAll(e => e.ItemNumber == wanted);
+                else if (!isWeapon)
+                    pool = pool.FindAll(e => e.ItemNumber.SubCategory == wanted.SubCategory);
             }
 
             if (pool.Count == 0)
@@ -122,22 +118,6 @@ namespace Netsphere.Shop
             };
         }
 
-
-        // the page buttons, Head Shirt Pants Glove Shoes, against the item number sub
-        // category: 0 hair, 2 shirt, 3 pants, 4 gloves, 5 shoes
-        private static int SubCategoryOf(byte category)
-        {
-            switch (category)
-            {
-                case 0: return 0;
-                case 1: return 2;
-                case 2: return 3;
-                case 3: return 4;
-                case 4: return 5;
-                default: return -1;
-            }
-        }
-
         public static void SetLastRoll(Player player, ulong itemId, uint itemNumber)
         {
             LastRoll[player] = itemId;
@@ -179,6 +159,7 @@ namespace Netsphere.Shop
         private static void EnsureBuilt()
         {
             var shop = GameServer.Instance.ResourceCache.GetShop();
+            var known = GameServer.Instance.ResourceCache.GetItems();
             if (_weaponPool != null && _builtVersion == shop.Version)
                 return;
 
@@ -192,6 +173,11 @@ namespace Netsphere.Shop
 
                 foreach (var item in shop.Items.Values)
                 {
+                    // the shop table carries item numbers the client has never heard of,
+                    // and its slot draws nothing for them. iteminfo.x7 is the truth here
+                    if (!known.ContainsKey(item.ItemNumber))
+                        continue;
+
                     if (item.ItemNumber.Category != ItemCategory.Costume &&
                         item.ItemNumber.Category != ItemCategory.Weapon)
                         continue;

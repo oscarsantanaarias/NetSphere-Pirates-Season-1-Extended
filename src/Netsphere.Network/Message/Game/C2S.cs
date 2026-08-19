@@ -287,9 +287,10 @@ namespace Netsphere.Network.Message.Game
         [BlubMember(0)]
         public bool IsWeapon { get; set; }
 
-        // the sub tab the page is on: Head, Shirt, Pants, Glove, Shoes
+        // the gender the item slot carries: 0 male, 1 female, 2 once the slot shows an item.
+        // sub_61D950 writes it off the character, and only the costume tab uses it
         [BlubMember(1)]
-        public byte Category { get; set; }
+        public byte Gender { get; set; }
 
         [BlubMember(2)]
         public byte HoldItem { get; set; }

@@ -335,11 +335,17 @@ namespace Netsphere.Network.Services
                 return;
             }
 
-            Console.WriteLine($"[fumbi] tab={(message.IsWeapon ? "weapon" : "costume")} category={message.Category} held={message.HeldItemNumber} hold={message.HoldItem}");
+            // the shop item carries Gender (None/Male/Female), the character a CharacterGender
+            // (Male/Female), and the request the same 0/1 as the character, 2 for either
+            var gender = plr.CharacterManager.CurrentCharacter.Gender == CharacterGender.Female
+                ? Gender.Female
+                : Gender.Male;
+            if (message.Gender == 0)
+                gender = Gender.Male;
+            else if (message.Gender == 1)
+                gender = Gender.Female;
 
-            var entry = FumbiShop.Roll(message.IsWeapon,
-                plr.CharacterManager.CurrentCharacter.Gender,
-                message.Category,
+            var entry = FumbiShop.Roll(message.IsWeapon, gender,
                 FumbiShop.Selected(plr, message.HeldItemNumber),
                 message.HoldItem != 0);
             if (entry == null)
@@ -383,14 +389,23 @@ namespace Netsphere.Network.Services
 
             FumbiShop.SetLastRoll(plr, rolled.Id, entry.ItemNumber);
 
+            // a slot on Stop keeps what it had, which is what the help calls Resume Dance:
+            // the client sends the value it is holding and expects it back untouched
+            var color = message.HoldColor != 0 && message.HeldColor >= 0
+                ? (uint)message.HeldColor
+                : entry.Color;
+            var effect = message.HoldEffect != 0 && message.HeldEffect >= 0
+                ? (uint)message.HeldEffect
+                : 0u;
+
             await session.SendAsync(new SRandomShopItemInfoAckMessage
             {
                 Item = new RandomShopItemDto
                 {
                     Tab = tab,
                     ItemNumber = entry.ItemNumber,
-                    Effect = 0,
-                    Color = entry.Color,
+                    Effect = effect,
+                    Color = color,
                     PeriodType = entry.PeriodType,
                     Period = entry.Period
                 }
