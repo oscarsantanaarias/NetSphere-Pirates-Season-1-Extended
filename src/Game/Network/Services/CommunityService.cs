@@ -53,7 +53,12 @@ namespace Netsphere.Network.Services
 
             if (plr.Account.Id == accountId)
             {
-                await session.SendAsync(new SUserDataAckMessage(plr.Map<Player, UserDataDto>()))
+                // answered with the very id he asked with, peer id included. My Info compares
+                // it against what it sent and drops the reply when it comes back stripped
+                var mine = plr.Map<Player, UserDataDto>();
+                mine.AccountId = message.AccountId;
+
+                await session.SendAsync(new SUserDataAckMessage(mine))
                     .ConfigureAwait(false);
                 return;
             }
