@@ -142,7 +142,10 @@ namespace Netsphere.Network.Services
             if (info == null)
                 return;
 
-            var progress = message.Progress > info.Goal ? info.Goal : message.Progress;
+            // the client reports the progress it already knows, the one we gave it, and expects
+            // the step to be added here: it sends one of these per action, so four wall jumps in a
+            // row all arrive as 2/3 until we move the number ourselves
+            var progress = 0;
             var completed = false;
 
             try
@@ -156,6 +159,10 @@ namespace Netsphere.Network.Services
 
                     if (row == null || row.Completed)
                         return;
+
+                    progress = row.Progress + 1;
+                    if (progress > info.Goal)
+                        progress = info.Goal;
 
                     row.Progress = progress;
                     completed = info.Goal > 0 && progress >= info.Goal;
