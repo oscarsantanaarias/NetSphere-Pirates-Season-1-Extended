@@ -177,47 +177,6 @@ namespace Netsphere.Database.Game
         public ulong CPTCount { get; set; }
     }
 
-    [Table("player_characters")]
-    public class PlayerCharacterDto
-    {
-        [Key]
-        public int Id { get; set; }
-
-        [ForeignKey(nameof(Player))]
-        public int PlayerId { get; set; }
-        public PlayerDto Player { get; set; }
-
-        public byte Slot { get; set; }
-        public byte Gender { get; set; }
-        public byte BasicHair { get; set; }
-        public byte BasicFace { get; set; }
-        public byte BasicShirt { get; set; }
-        public byte BasicPants { get; set; }
-        public int? Weapon1Id { get; set; }
-        public int? Weapon2Id { get; set; }
-        public int? Weapon3Id { get; set; }
-        public int? SkillId { get; set; }
-        public int? HairId { get; set; }
-        public int? FaceId { get; set; }
-        public int? ShirtId { get; set; }
-        public int? PantsId { get; set; }
-        public int? GlovesId { get; set; }
-        public int? ShoesId { get; set; }
-        public int? AccessoryId { get; set; }
-    }
-
-    [Table("player_deny")]
-    public class PlayerDenyDto
-    {
-        [Key]
-        public int Id { get; set; }
-
-        [ForeignKey(nameof(Player))]
-        public int PlayerId { get; set; }
-        public PlayerDto Player { get; set; }
-
-        public int DenyPlayerId { get; set; }
-    }
     [Table("player_friends")]
     public class PlayerFriendDto
     {
