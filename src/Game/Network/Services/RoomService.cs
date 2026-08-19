@@ -388,6 +388,11 @@ namespace Netsphere.Network.Services
                     : PlayerState.Spectating;
                 //Specific Implementation since in chaser mode it gets called when intrusion from inside the room
                 plr.Room.BroadcastBriefing(plr);
+
+                // and in battle royal, who the leader is: he walks in with that box empty
+                var br = plr.Room.GameRuleManager.GameRule as BattleRoyalGameRule;
+                if (br?.First != null)
+                    session.SendAsync(new SGameRuleChangeTheFirstAckMessage(br.First.Account.Id));
             }
 
             plr.Room.Broadcast(new SEventMessageAckMessage(message.Event, session.Player.Account.Id, message.Unk1, message.Value, ""));
