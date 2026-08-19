@@ -25,10 +25,38 @@ namespace Netsphere.Network.Services
         {
             var plr = session.Player;
 
-            plr.Room.Broadcast(new SEnterPlayerAckMessage(plr.Account.Id, plr.Account.Nickname, 0, plr.RoomInfo.Mode, 0));
+            // no parking here, and no touching his state: CEventMessageReq needs to find him on
+            // PlayerState.Lobby to know he is intruding, and that is where the parking happens
+            plr.Room.Broadcast(new SEnterPlayerAckMessage(plr.Account.Id, plr.Account.Nickname,
+                (byte)plr.RoomInfo.Team.Team, plr.RoomInfo.Mode, (int)plr.TotalExperience));
             session.SendAsync(new SChangeMasterAckMessage(plr.Room.Master.Account.Id));
             session.SendAsync(new SChangeRefeReeAckMessage(plr.Room.Host.Account.Id));
-            plr.Room.BroadcastBriefing();
+            plr.Room.BroadcastBriefing(false, plr);
+
+            foreach (var other in plr.Room.Players.Values)
+            {
+                if (other == plr)
+                    continue;
+
+                // the channel player list skips whoever is inside a room (Channel.Join), so he
+                // never got their user data and his client draws them at level 1
+                plr.ChatSession?.SendAsync(
+                    new Netsphere.Network.Message.Chat.SUserDataAckMessage(
+                        other.Map<Player, Netsphere.Network.Data.Chat.UserDataDto>()));
+
+                // and nobody sends CAvatarChangeReq once the match is running, so their look
+                // never reaches him either and they all render naked
+                session.SendAsync(new SAvatarChangeAckMessage(BuildAvatar(other, null), Array.Empty<ChangeAvatarUnk2Dto>()));
+
+                // the same two the other way round. without them the players already inside get
+                // his SEnterPlayerAck and nothing else, so he shows up on their roster at level
+                // 1 and naked, or does not show up at all
+                other.ChatSession?.SendAsync(
+                    new Netsphere.Network.Message.Chat.SUserDataAckMessage(
+                        plr.Map<Player, Netsphere.Network.Data.Chat.UserDataDto>()));
+
+                other.Session?.SendAsync(new SAvatarChangeAckMessage(BuildAvatar(plr, null), Array.Empty<ChangeAvatarUnk2Dto>()));
+            }
         }
 
         [MessageHandler(typeof(CMakeRoomReqMessage))]
@@ -270,23 +298,44 @@ namespace Netsphere.Network.Services
         public void CEventMessageReq(GameSession session, CEventMessageReqMessage message)
         {
             var plr = session.Player;
-            plr.Room.Broadcast(new SEventMessageAckMessage(message.Event, session.Player.Account.Id, message.Unk1, message.Value, ""));
-            //if (message.Event == GameEventMessage.BallReset && plr == plr.Room.Host)
-            //{
-            //    plr.Room.Broadcast(new SEventMessageAckMessage(GameEventMessage.BallReset, 0, 0, 0, ""));
-            //    return;
-            //}
 
-            //if (message.Event != GameEventMessage.StartGame)
-            //    return;
+            // the parking runs before the echo, never after. this echo is his green light: the
+            // client sends its event and waits for the room to confirm it before it is in the
+            // match, so anything that lands after it is too late to take him out again. holding
+            // it back altogether is no good either, he then sits in the room screen until the
+            // next round. S10 does exactly this order, OnBeforeIntrudeSpawn and only then
+            // RoomGameStartAck
+            var intruding = plr.Room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing)
+                            && plr.RoomInfo.State == PlayerState.Lobby;
 
-            if (plr.Room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing) && plr.RoomInfo.State == PlayerState.Lobby)
+            if (intruding)
             {
                 plr.RoomInfo.State = plr.RoomInfo.Mode == PlayerGameMode.Normal
                     ? PlayerState.Alive
                     : PlayerState.Spectating;
                 //Specific Implementation since in chaser mode it gets called when intrusion from inside the room
                 plr.Room.BroadcastBriefing(plr);
+            }
+
+            plr.Room.Broadcast(new SEventMessageAckMessage(message.Event, session.Player.Account.Id, message.Unk1, message.Value, ""));
+
+            // he comes in dead, which is what gets the client to load the map, and the observer
+            // mode follows a few seconds later, once the death camera has settled. sending it
+            // any earlier lands while the client is still coming in and leaves him in the room
+            // screen. the mode goes on the wire only, his RoomInfo.Mode stays Normal so he keeps
+            // his row in the briefing.
+            //
+            // no briefing here either, one sent at this point undoes the parking
+            if (intruding && plr.RoomInfo.State == PlayerState.Dead)
+            {
+                var room = plr.Room;
+                Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ =>
+                {
+                    if (plr.Room != room || plr.RoomInfo.State != PlayerState.Dead)
+                        return;
+
+                    room.Broadcast(new SPlayerGameModeChangeAckMessage(plr.Account.Id, PlayerGameMode.Observer));
+                });
             }
         }
 

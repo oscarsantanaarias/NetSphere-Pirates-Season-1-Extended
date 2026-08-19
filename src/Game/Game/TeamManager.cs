@@ -267,8 +267,12 @@ namespace Netsphere.Game.Systems
             plr.RoomInfo.Team = this;
             _players.TryAdd(plr.RoomInfo.Slot, plr);
 
-            if (isChange)
-                TeamManager.Broadcast(new SChangeTeamAckMessage(plr.Account.Id, Team, plr.RoomInfo.Mode));
+            // on every join, not only when someone switches sides. SEnteredPlayerAck carries no
+            // team, and the players already in the room have nothing else to tell them which
+            // side the newcomer belongs to, so without this his slot stays empty on their
+            // roster. the one who walks in gets the whole thing in SEnteredPlayerListAck and
+            // never noticed the gap
+            TeamManager.Broadcast(new SChangeTeamAckMessage(plr.Account.Id, Team, plr.RoomInfo.Mode));
 
             OnPlayerJoined(plr);
         }

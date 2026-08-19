@@ -196,6 +196,11 @@
     {
         Normal = 1,
         Spectate = 2,
+
+        // the client asks for this one itself when its actor enters CSpectateState, sub_578570
+        // sends it through sub_BE49D0(..., 3, ...). Spectate leaves the camera loose, this is
+        // the one that hooks it onto a player
+        Observer = 3,
     }
 
     public enum PlayerState : byte

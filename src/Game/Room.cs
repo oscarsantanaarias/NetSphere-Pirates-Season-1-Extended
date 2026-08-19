@@ -28,6 +28,7 @@ namespace Netsphere
 
         private readonly ConcurrentDictionary<ulong, Player> _players = new ConcurrentDictionary<ulong, Player>();
         private readonly ConcurrentDictionary<ulong, object> _kickedPlayers = new ConcurrentDictionary<ulong, object>();
+        private readonly ConcurrentDictionary<ulong, byte> _peerIdSeq = new ConcurrentDictionary<ulong, byte>();
         private readonly TimeSpan _hostUpdateTime = TimeSpan.FromSeconds(30);
         private readonly TimeSpan _changingRulesTime = TimeSpan.FromSeconds(5);
 
@@ -61,10 +62,13 @@ namespace Netsphere
         public event EventHandler<RoomPlayerEventArgs> PlayerLeft;
         public event EventHandler StateChanged;
 
+        // the room list update has to skip whoever is inside a room: the client applies it
+        // to the room it is playing in (FUN_008c1930 refreshes the ingame gui) and RoomDto
+        // has no TimeSync, so their clock restarts every time someone joins
         protected virtual void OnPlayerJoining(RoomPlayerEventArgs e)
         {
             PlayerJoining?.Invoke(this, e);
-            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()));
+            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()), true);
             RoomManager.Channel.Broadcast(new SUserDataAckMessage(e.Player.Map<Player, UserDataDto>()));
         }
 
@@ -77,14 +81,14 @@ namespace Netsphere
         protected virtual void OnPlayerLeft(RoomPlayerEventArgs e)
         {
             PlayerLeft?.Invoke(this, e);
-            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()));
+            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()), true);
             RoomManager.Channel.Broadcast(new SUserDataAckMessage(e.Player.Map<Player, UserDataDto>()));
         }
 
         protected virtual void OnStateChanged()
         {
             StateChanged?.Invoke(this, EventArgs.Empty);
-            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()));
+            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()), true);
         }
 
         #endregion
@@ -164,6 +168,9 @@ namespace Netsphere
                     id++;
 
                 plr.RoomInfo.Slot = id;
+
+                var gen = _peerIdSeq.AddOrUpdate(plr.Account.Id, (byte)0, (_, prev) => (byte)(prev + 1));
+                plr.RoomInfo.PeerId = new LongPeerId(plr.Account.Id, new PeerId(gen, id, 1));
             }
 
             plr.RoomInfo.State = PlayerState.Lobby;
@@ -184,10 +191,64 @@ namespace Netsphere
             }
 
             Broadcast(new SEnteredPlayerAckMessage(plr.Map<Player, RoomPlayerDto>()));
-            plr.Session.SendAsync(new SSuccessEnterRoomAckMessage(this.Map<Room, EnterRoomInfoDto>()));
-            //plr.Session.SendAsync(new SIdsInfoAckMessage(0, plr.RoomInfo.Slot)); //edited here
-            plr.Session.SendAsync(new SIdsInfoAckMessage(1, plr.RoomInfo.Slot));
+
+            // built by hand instead of through the mapper: the client takes TimeLimit
+            // straight as the hud clock, and a mapper that silently drops it leaves the
+            // player at 00:00
+            var gameRule = GameRuleManager.GameRule;
+            var enterInfo = new EnterRoomInfoDto
+            {
+                RoomId = Id,
+                MatchKey = Options.MatchKey,
+                State = gameRule.StateMachine.IsInState(GameRuleState.Waiting) ? GameState.Waiting
+                    : gameRule.StateMachine.IsInState(GameRuleState.Result) ? GameState.Result
+                    : GameState.Playing,
+                TimeState = gameRule.StateMachine.IsInState(GameRuleState.HalfTime) ? GameTimeState.HalfTime
+                    : gameRule.StateMachine.IsInState(GameRuleState.SecondHalf) ? GameTimeState.SecondHalf
+                    : gameRule.StateMachine.IsInState(GameRuleState.Neutral) ? GameTimeState.Neutral
+                    : GameTimeState.FirstHalf,
+                TimeLimit = (uint)Options.TimeLimit.TotalMilliseconds,
+                TimeSync = (uint)gameRule.RoundTime.TotalMilliseconds,
+                ScoreLimit = Options.ScoreLimit,
+                IsFriendly = Options.IsFriendly,
+                IsBalanced = Options.IsBalanced,
+                MinLevel = Options.MinLevel,
+                MaxLevel = Options.MaxLevel,
+                ItemLimit = Options.ItemLimit,
+                IsNoIntrusion = Options.IsNoIntrusion,
+                RelayEndPoint = Options.ServerEndPoint
+            };
+
+            plr.Session.SendAsync(new SSuccessEnterRoomAckMessage(enterInfo));
+            // same packet as S10's RoomCurrentCharacterSlotAck: the first field is the
+            // character slot in use, not a constant. the client builds its actor id out of
+            // it, and a wrong one leaves a player who can deal damage but not take it
+            plr.Session.SendAsync(new SIdsInfoAckMessage(plr.CharacterManager.CurrentSlot, plr.RoomInfo.Slot));
             plr.Session.SendAsync(new SEnteredPlayerListAckMessage(_players.Values.Select(p => p.Map<Player, RoomPlayerDto>()).ToArray()));
+
+            // his own info to everybody else in the room, on the way in. the roster acks above
+            // carry a nickname and nothing more, and the level and the look ride on the chat
+            // user data, so without this the players inside draw him from whatever they had.
+            // S10 does the same from Room.Join, ChatPlayerInfoAck broadcast to the room
+            foreach (var other in _players.Values)
+            {
+                if (other == plr)
+                    continue;
+
+                other.ChatSession?.SendAsync(
+                    new Netsphere.Network.Message.Chat.SUserDataAckMessage(
+                        plr.Map<Player, Netsphere.Network.Data.Chat.UserDataDto>()));
+            }
+
+            // the roster tells him who is in the room, this tells him what they have scored.
+            // without it the room screen he lands on is missing half of itself until his
+            // CEnterPlayerReq comes back, a round trip later.
+            //
+            // through BroadcastBriefing so it follows the same rule as the rest: the whole room
+            // while it is standing in the lobby, where the players inside need it to see him,
+            // and the joiner alone once a match is running
+            BroadcastBriefing(false, plr);
+
             OnPlayerJoining(new RoomPlayerEventArgs(plr));
         }
 
@@ -440,12 +501,18 @@ namespace Netsphere
                 plr.Session.SendAsync(message);
         }
 
-        public void BroadcastBriefing(bool isResult = false)
+        public void BroadcastBriefing(bool isResult = false, Player only = null)
         {
             var gameRule = GameRuleManager.GameRule;
-            //var isResult = gameRule.StateMachine.IsInState(GameRuleState.Result);
-            Broadcast(new SBriefingAckMessage(isResult, false, gameRule.Briefing.ToArray(isResult)));
+            var message = new SBriefingAckMessage(isResult, false, gameRule.Briefing.ToArray(isResult));
 
+            // a briefing to the room while a match is running replays the chaser announcement
+            // and breaks the cameras, so the one who joins gets it alone. standing in the lobby
+            // there is nothing to replay and the players inside need it to see him on the board
+            if (only != null && gameRule.StateMachine.IsInState(GameRuleState.Playing))
+                only.Session.SendAsync(message);
+            else
+                Broadcast(message);
         }
         public void BroadcastBriefing(Player plr)
         {
@@ -454,10 +521,14 @@ namespace Netsphere
 
             var isPlaying = gameRule.StateMachine.IsInState(GameRuleState.Playing);
 
+            Console.WriteLine($"[intruder] {plr.Account.Nickname}: rule={gameRule.GameRule} state={gameRule.StateMachine.State} " +
+                              $"playing={isPlaying} notInitialBriefing={gameRule.notInitialBriefing} " +
+                              $"plrstate={plr.RoomInfo.State} mode={plr.RoomInfo.Mode}");
+
             if (gameRule.GameRule == GameRule.Chaser && isPlaying && gameRule.notInitialBriefing)
             {
-                //Player intruding, dont send Briefing and set as dead
-                plr.RoomInfo.State = PlayerState.Dead;
+                // the rule handles all of it, the briefing to the room included
+                ((Netsphere.Game.GameRules.ChaserGameRule)gameRule).ParkIntruder(plr);
             }
 
             else
