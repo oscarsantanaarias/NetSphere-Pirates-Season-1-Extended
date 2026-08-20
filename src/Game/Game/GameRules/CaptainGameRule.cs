@@ -14,6 +14,7 @@ namespace Netsphere.Game.GameRules
         private static readonly TimeSpan s_captainNextroundTime = TimeSpan.FromSeconds(12);
         private static readonly TimeSpan s_captainRoundTime = TimeSpan.FromMinutes(5);
         private readonly CaptainHelper _captainHelper;
+        private readonly IList<Player> _intruders = new List<Player>();
         private uint _currentRound;
         private TimeSpan _nextRoundTime = TimeSpan.Zero;
         private TimeSpan _subRoundTime = TimeSpan.Zero;
@@ -123,16 +124,22 @@ namespace Netsphere.Game.GameRules
             base.Cleanup();
         }
 
-        // the one who walks into a match already going does not know which round it is or how
-        // long it has been running, the later seasons send him exactly this and only to him
-        public override void PlayerJoined(object room, RoomPlayerEventArgs e)
+        // the way the later seasons take him in: he plays from the moment he loads but he is
+        // not a captain until the next round starts, so he does not count for who is left and
+        // the room gets no briefing thrown at it in the middle of a round
+        public void IntrudeCompleted(Player plr)
         {
-            base.PlayerJoined(room, e);
+            var record = plr.RoomInfo.Stats as CaptainPlayerRecord;
+            if (record != null)
+                record.IsCaptain = false;
 
-            if (!StateMachine.IsInState(GameRuleState.Playing))
-                return;
+            if (!_intruders.Contains(plr))
+                _intruders.Add(plr);
 
-            e.Player.Session?.SendAsync(new SCurrentRoundInformationAckMessage
+            plr.Session?.SendAsync(new SRefreshGameRuleInfoAckMessage(GameState.Playing, GameTimeState.FirstHalf,
+                (int)_subRoundTime.TotalMilliseconds));
+
+            plr.Session?.SendAsync(new SCurrentRoundInformationAckMessage
             {
                 Unk1 = (int)_currentRound + 1,
                 Unk2 = (int)_subRoundTime.TotalSeconds
@@ -160,7 +167,6 @@ namespace Netsphere.Game.GameRules
         public override void OnScoreTeamKill(Player killer, Player target, AttackAttribute attackAttribute)
         {
             _captainHelper.Dead(target);
-            GetRecord(target).Deaths++;
             base.OnScoreTeamKill(killer, target, attackAttribute);
 
             // a kill that lands during the twelve seconds between rounds does not end
@@ -171,7 +177,14 @@ namespace Netsphere.Game.GameRules
 
         public override void OnScoreKill(Player killer, Player assist, Player target, AttackAttribute attackAttribute)
         {
-            if (_captainHelper.Dead(target))
+            var wasCaptain = _captainHelper.Dead(target);
+
+            // the kill, the assist and the death are counted once, by the base. We were counting
+            // all three a second time here, so one shot gave the killer a kill plus a captain
+            // kill and the one who fell two deaths
+            base.OnScoreKill(killer, assist, target, attackAttribute);
+
+            if (wasCaptain)
             {
                 GetRecord(killer).KillCaptains++;
                 if (GetRecord(killer).Kills > 0)
@@ -184,16 +197,6 @@ namespace Netsphere.Game.GameRules
                         GetRecord(assist).KillAssists--;
                 }
             }
-            else
-            {
-                GetRecord(killer).Kills++;
-                if (assist != null)
-                    GetRecord(assist).KillAssists++;
-            }
-
-            GetRecord(target).Deaths++;
-
-            base.OnScoreKill(killer, null, target, attackAttribute);
 
             if (!_waitingNextRound && _captainHelper.RoundOver())
                 SubRoundEnd();
@@ -202,7 +205,7 @@ namespace Netsphere.Game.GameRules
         public override void OnScoreSuicide(Player plr)
         {
             _captainHelper.Dead(plr);
-            GetPlayerRecord(plr).Suicides++;
+            GetRecord(plr).Suicides++;
             base.OnScoreSuicide(plr);
 
             if (!_waitingNextRound && _captainHelper.RoundOver())
@@ -248,6 +251,19 @@ namespace Netsphere.Game.GameRules
             _nextRoundTime = TimeSpan.Zero;
             _subRoundTime = TimeSpan.Zero;
             _waitingNextRound = true;
+
+            // he only has what the room looked like when he walked in plus whatever he saw with
+            // his own eyes, so his scoreboard drifts. The round is over, he can have the real one
+            // without the rest of the room having theirs repainted
+            foreach (var intruder in _intruders)
+            {
+                if (intruder.Room != Room)
+                    continue;
+
+                intruder.Session?.SendAsync(new SBriefingAckMessage(false, false, Briefing.ToArray(false)));
+            }
+
+            _intruders.Clear();
 
             // Did we reach ScoreLimit or Round Limit?
             if (_currentRound >= Room.Options.TimeLimit.Minutes
@@ -439,7 +455,7 @@ namespace Netsphere.Game.GameRules
             {
                 get
                 {
-                    var earned = (5 * KillCaptains) + KillAssistCaptains + (2 * Kills) + KillAssists + Heal;
+                    var earned = (5 * (KillCaptains + WinRound)) + KillAssistCaptains + (2 * Kills) + KillAssists + Heal;
                     return Suicides >= earned ? 0 : earned - Suicides;
                 }
             }

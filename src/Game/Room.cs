@@ -517,6 +517,12 @@ namespace Netsphere
                 ((Netsphere.Game.GameRules.ChaserGameRule)gameRule).ParkIntruder(plr);
             }
 
+            // captain repaints the whole scoreboard off the briefing, so sending it to the room
+            // in the middle of a round threw everyone's numbers back. He gets his own round
+            // information instead and joins the count of captains when the next round starts
+            else if (gameRule.GameRule == GameRule.Captain && isPlaying)
+                ((Netsphere.Game.GameRules.CaptainGameRule)gameRule).IntrudeCompleted(plr);
+
             else
                 Broadcast(new SBriefingAckMessage(isResult, false, gameRule.Briefing.ToArray(isResult)));
         }
