@@ -17,6 +17,37 @@ namespace ProudNet.Handlers
             return session.SendAsync(new ReliablePongMessage()); //--> sends this message, CORE gets classic tcp protocol info that client got the message and calcs ping, missing here!!
         }
 
+        // a direct link between two members went down. The other end has to be told, or he keeps
+        // talking to a peer that is not listening any more instead of going through the relay
+        [MessageHandler(typeof(P2P_NotifyDirectP2PDisconnectedMessage))]
+        public void P2P_NotifyDirectP2PDisconnected(ProudSession session, P2P_NotifyDirectP2PDisconnectedMessage message)
+        {
+            if (session.P2PGroup == null)
+                return;
+
+            var peer = session.P2PGroup.Members.GetValueOrDefault(session.HostId);
+            var stateA = peer?.ConnectionStates.GetValueOrDefault(message.RemotePeerHostId);
+            var stateB = stateA?.RemotePeer.ConnectionStates.GetValueOrDefault(session.HostId);
+
+            if (stateA != null && stateA.HolepunchSuccess)
+            {
+                stateA.HolepunchSuccess = false;
+                stateA.RemotePeer.SendAsync(new P2P_NotifyDirectP2PDisconnected2Message(session.HostId, message.Reason));
+            }
+
+            if (stateB != null && stateB.HolepunchSuccess)
+                stateB.HolepunchSuccess = false;
+        }
+
+        // he gave up on udp altogether and wants the tcp relay. Without this the server kept
+        // firing udp at somebody who had stopped listening to it
+        [MessageHandler(typeof(NotifyUdpToTcpFallbackByClientMessage))]
+        public void NotifyUdpToTcpFallbackByClient(ProudServer server, ProudSession session)
+        {
+            session.UdpEnabled = false;
+            server.SessionsByUdpId.Remove(session.UdpSessionId);
+        }
+
         [MessageHandler(typeof(P2PGroup_MemberJoin_AckMessage))] //client->response->joined p2p group (unreliable, cuz only for p2p)
         public void P2PGroupMemberJoinAck(ProudSession session, P2PGroup_MemberJoin_AckMessage message)
         {
