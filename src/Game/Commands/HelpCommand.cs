@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Netsphere.Network;
@@ -25,23 +25,22 @@ namespace Netsphere.Commands
         public bool Execute(GameServer server, Player plr, string[] args)
         {
             var level = plr?.Account.SecurityLevel ?? SecurityLevel.Developer;
-            var text = new StringBuilder();
 
+            // one line each: the console window is a single line tall and the long list ran off
+            // the right edge of the screen
             foreach (var cmd in server.CommandManager.Commands.Where(c => level >= c.Permission))
             {
-                text.Append(cmd.Name);
+                var text = new StringBuilder(cmd.Name);
 
                 var subs = cmd.SubCommands.Where(c => level >= c.Permission).Select(c => c.Name).ToArray();
                 if (subs.Length > 0)
                     text.Append(" [" + string.Join(" | ", subs) + "]");
 
-                text.Append("  ");
+                if (plr == null)
+                    System.Console.WriteLine(text.ToString());
+                else
+                    plr.SendConsoleMessage(S4Color.Green + text.ToString());
             }
-
-            if (plr == null)
-                System.Console.WriteLine(text.ToString());
-            else
-                plr.SendConsoleMessage(S4Color.Green + text.ToString());
 
             return true;
         }
