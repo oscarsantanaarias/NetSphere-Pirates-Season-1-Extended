@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Netsphere.Network;
 using Netsphere.Network.Data.Game;
 using Netsphere.Network.Data.GameRule;
 using Netsphere.Network.Message.Game;
@@ -108,12 +109,11 @@ namespace Netsphere.Game.GameRules
         public override void PlayerJoined(object room, RoomPlayerEventArgs e)
         {
             base.PlayerJoined(room, e);
-            e.Player.Session.SendAsync(new SArcadeStageBriefingAckMessage
-            {
-                Unk1 = Stage,
-                Unk2 = SubStage,
-                Data = new byte[] { 0, 0, 0 }
-            });
+
+            // 21045 is the summary of a finished stage, with a record per player inside it. It
+            // was going out on the way into the room with three bytes of nothing in it and the
+            // client fell over reading it. What he needs here is the board of the mode
+            SendStageInfo(e.Player);
         }
 
         public override void PlayerLeft(object room, RoomPlayerEventArgs e)
@@ -141,6 +141,11 @@ namespace Netsphere.Game.GameRules
         public void StageBegin(Player plr)
         {
             ResetStage();
+
+            // arcade has its own request to start, the normal begin round never arrives, so
+            // nobody was starting the match: the map loaded and everyone stood there waiting
+            if (StateMachine.CanFire(GameRuleStateTrigger.StartGame))
+                StateMachine.Fire(GameRuleStateTrigger.StartGame);
 
             Room.Broadcast(new SArcadeBeginRoundAckMessage
             {
