@@ -662,6 +662,15 @@ namespace Netsphere.Network.Services
                 ((TouchdownGameRule)room.GameRuleManager.GameRule).OnScoreGoal(target);
         }
 
+        private static ArcadeGameRule GetArcade(GameSession session)
+        {
+            var room = session.Player?.Room;
+            if (room == null || room.Options.MatchKey.GameRule != GameRule.Arcade)
+                return null;
+
+            return room.GameRuleManager.GameRule as ArcadeGameRule;
+        }
+
         [MessageHandler(typeof(CMissionScoreReqMessage))]
         public void CMissionScoreReq(GameSession session, CMissionScoreReqMessage message)
         {
@@ -675,24 +684,37 @@ namespace Netsphere.Network.Services
 
         [MessageHandler(typeof(CArcadeScoreSyncReqMessage))]
         public void CArcadeScoreSyncReq(GameSession session, CArcadeScoreSyncReqMessage message)
-        { }
+        {
+            var arcade = GetArcade(session);
+            arcade?.ScoreSync(message.Scores);
+        }
 
         [MessageHandler(typeof(CArcadeBeginRoundReqMessage))]
         public void CArcadeBeginRoundReq(GameSession session, CArcadeBeginRoundReqMessage message)
         {
-            //Logger.ForAccount(session.Player.Account)
-              // .Debug($"Arcade Begin Round {message.Unk1} {message.Unk2}");
+            var arcade = GetArcade(session);
+            if (arcade == null)
+            {
+                session.SendAsync(new SArcadeBeginRoundAckMessage { Unk1 = message.Unk1, Unk2 = message.Unk2 });
+                return;
+            }
 
-            session.SendAsync(new SArcadeBeginRoundAckMessage { Unk1 = message.Unk1, Unk2 = message.Unk2 });
+            arcade.StageBegin(session.Player);
         }
 
         [MessageHandler(typeof(CArcadeStageClearReqMessage))]
         public void CArcadeStageClearReq(GameSession session, CArcadeStageClearReqMessage message)
-        { }
+        {
+            var arcade = GetArcade(session);
+            arcade?.StageClear(message.Scores);
+        }
 
         [MessageHandler(typeof(CArcadeStageFailedReqMessage))]
         public void CArcadeStageFailedReq(GameSession session, CArcadeStageFailedReqMessage message)
-        { }
+        {
+            var arcade = GetArcade(session);
+            arcade?.StageFailed(session.Player);
+        }
 
         [MessageHandler(typeof(CArcadeStageInfoReqMessage))]
         public void CArcadeStageInfoReq(GameSession session, CArcadeStageInfoReqMessage message)
@@ -715,10 +737,14 @@ namespace Netsphere.Network.Services
         [MessageHandler(typeof(CArcadeRespawnReqMessage))]
         public void CArcadeRespawnReq(GameSession session, CArcadeRespawnReqMessage message)
         {
-            //Logger.ForAccount(session.Player.Account)
-                //.Debug($"Arcade Respawn {message.Unk1} {message.Unk2}");
+            var arcade = GetArcade(session);
+            if (arcade == null)
+            {
+                session.SendAsync(new SArcadeRespawnAckMessage { Unk = 0 });
+                return;
+            }
 
-            session.SendAsync(new SArcadeRespawnAckMessage { Unk = 0 });
+            arcade.Respawn(session.Player);
         }
 
         [MessageHandler(typeof(CArcadeStageReadyReqMessage))]
@@ -739,11 +765,7 @@ namespace Netsphere.Network.Services
             if (room.Options.MatchKey.GameRule != GameRule.Arcade)
                 return;
 
-            var Arcade = ((ArcadeGameRule)room.GameRuleManager.GameRule);
-            Arcade.Stage = message.Unk1;
-            Arcade.SubStage = message.Unk2;
-
-            room.Broadcast(new SArcadeStageSelectAckMessage { Unk1 = message.Unk1, Unk2 = message.Unk2 });
+            ((ArcadeGameRule)room.GameRuleManager.GameRule).StageSelect(message.Unk1, message.Unk2);
         }
 
         [MessageHandler(typeof(CArcadeLoadingSucceesReqMessage))]

@@ -16,12 +16,15 @@ namespace Netsphere
         public PlayerGameMode Mode { get; set; }
         public bool IsReady { get; set; }
 
+        public int ArcadeRespawnCount { get; set; }
+
         public TimeSpan PlayTime { get; set; }
         public TimeSpan[] CharacterPlayTime { get; set; } = { TimeSpan.Zero, TimeSpan.Zero, TimeSpan.Zero };
 
         public void Reset()
         {
             Stats?.Reset();
+            ArcadeRespawnCount = 0;
             PlayTime = TimeSpan.Zero;
             for (var i = 0; i < CharacterPlayTime.Length; i++)
                 CharacterPlayTime[i] = TimeSpan.Zero;
