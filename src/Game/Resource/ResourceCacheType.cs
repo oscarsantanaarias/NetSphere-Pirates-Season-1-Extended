@@ -6,6 +6,7 @@
         Effects,
         Items,
         DefaultItems,
+        GmSupportItems,
         Shop,
         Exp,
         Maps,

@@ -251,6 +251,28 @@ namespace Netsphere.Resource
 
             return (T)Convert.ChangeType(value, typeof(T), CultureInfo.InvariantCulture);
         }
+        #region GmSupportItems
+
+        // the list the client ships with, the items a game master is supposed to walk around
+        // with. Nothing was reading it, so a fresh gm account had the same wardrobe as anybody
+        public IEnumerable<ItemNumber> LoadGmSupportItems()
+        {
+            // the file is one of the client's and it is not in every data folder out there,
+            // without it nobody gets anything instead of the server refusing to start
+            var path = Path.Combine(ResourcePath, Path.Combine("xml", "gm_support_item.x7"));
+            if (!File.Exists(path))
+                yield break;
+
+            var dto = Deserialize<GmSupportItemDto>("xml/gm_support_item.x7");
+
+            if (dto.item == null)
+                yield break;
+
+            foreach (var itemDto in dto.item)
+                yield return new ItemNumber(itemDto.category, itemDto.sub_category, itemDto.number);
+        }
+
+        #endregion
 
         #region DefaultItems
 
