@@ -6,9 +6,6 @@ using Dapper;
 
 namespace Netsphere
 {
-    // which stages a player has already cleared, one row per stage and difficulty, the same
-    // table the later seasons keep. It is a set and not a counter because the eight stages of a
-    // difficulty can be cleared in any order and the reward only lands when all eight are in
     internal class ArcadeStats
     {
         public const byte Stages = 8;

@@ -54,9 +54,6 @@ namespace Netsphere.Game
             {
                 w.WriteEnum(team.Team);
 
-                // arcade carries one integer more here than every other mode. Without it the
-                // block came out four bytes short and every player record behind it was read
-                // shifted, which is why the whole result screen sat at zero
                 if (GameRule.GameRule == Netsphere.GameRule.Arcade)
                     w.Write((uint)0);
 

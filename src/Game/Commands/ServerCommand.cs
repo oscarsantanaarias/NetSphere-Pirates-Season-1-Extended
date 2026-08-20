@@ -68,8 +68,6 @@ namespace Netsphere.Commands
                 if (ts.Seconds > 0)
                     uptime.AppendFormat("{0} seconds ", ts.Seconds);
 
-                // Sessions is a dictionary, so casting it cast the KeyValuePairs and the
-                // command took the whole server down with it
                 var message =
                     $"Uptime: {uptime}{Environment.NewLine}Online: {server.Sessions.Values.OfType<GameSession>().Count(c => c.IsLoggedIn())} Peak: {0}";
                 if (plr == null)

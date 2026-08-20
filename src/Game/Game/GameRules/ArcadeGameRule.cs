@@ -14,7 +14,6 @@ namespace Netsphere.Game.GameRules
 {
     internal class ArcadeGameRule : GameRuleBase
     {
-        // ReSharper disable once InconsistentNaming
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         private const int ReviveCost = 30;
@@ -29,7 +28,6 @@ namespace Netsphere.Game.GameRules
 
         public byte SubStage { get; set; }
 
-        // the room window sends the difficulty in the same request as the stage
         public byte Difficulty => SubStage >= 1 && SubStage <= 3 ? SubStage : (byte)1;
 
         public override Briefing Briefing { get; }
@@ -89,8 +87,6 @@ namespace Netsphere.Game.GameRules
             {
                 if (StateMachine.IsInState(GameRuleState.Neutral))
                 {
-                    // this read "if there is anybody playing, go to the result screen", so every
-                    // arcade ended five seconds after it started
                     if (!teamMgr.PlayersPlaying.Any())
                         StateMachine.Fire(GameRuleStateTrigger.StartResult);
 
@@ -110,9 +106,6 @@ namespace Netsphere.Game.GameRules
         {
             base.PlayerJoined(room, e);
 
-            // 21045 is the summary of a finished stage, with a record per player inside it. It
-            // was going out on the way into the room with three bytes of nothing in it and the
-            // client fell over reading it. What he needs here is the board of the mode
             SendStageInfo(e.Player);
         }
 
@@ -128,7 +121,6 @@ namespace Netsphere.Game.GameRules
 
         public void OnLoadingOk(Player plr)
         {
-            // this was an Add, so the second match in the same room threw on the duplicate key
             _loadingOk[plr.Account.Id] = plr;
             Room.Broadcast(new SArcadeLoadingSucceedAckMessage { AccountId = plr.Account.Id });
 
@@ -136,14 +128,10 @@ namespace Netsphere.Game.GameRules
                 Room.Broadcast(new SArcadeAllLoadingSucceedAckMessage());
         }
 
-        // the host asks to start the stage. The whole room has to hear it, not only whoever
-        // asked, and everybody starts the stage with ten revives in the pocket
         public void StageBegin(Player plr)
         {
             ResetStage();
 
-            // arcade has its own request to start, the normal begin round never arrives, so
-            // nobody was starting the match: the map loaded and everyone stood there waiting
             if (StateMachine.CanFire(GameRuleStateTrigger.StartGame))
                 StateMachine.Fire(GameRuleStateTrigger.StartGame);
 
@@ -157,8 +145,6 @@ namespace Netsphere.Game.GameRules
                 player.RoomInfo.ArcadeRespawnCount = RespawnsPerStage;
         }
 
-        // the stage he is really on travels in this one too, right after the round begins, and
-        // it is the only one that arrives when he does not touch the selection
         public void StageInfo(byte stage, byte subStage)
         {
             if (stage >= 1 && stage <= ArcadeStats.Stages)
@@ -176,11 +162,6 @@ namespace Netsphere.Game.GameRules
             Room.Broadcast(new SArcadeStageSelectAckMessage { Unk1 = stage, Unk2 = subStage });
         }
 
-        // what the host sends while the stage runs: how many monsters each one has put down. The
-        // highest seen is kept so a late packet does not take kills away, the share of the work
-        // is worked out from the total and the table goes back to the room
-        // one monster down. The client sends these as ordinary kills with a target that is not
-        // a player, and they are what the contribution of the stage is shared out by
         public void MonsterKilled(Player plr)
         {
             if (plr == null)
@@ -196,8 +177,6 @@ namespace Netsphere.Game.GameRules
             BroadcastShares();
         }
 
-        // every player reports his own damage while the stage runs, one number at a time. The
-        // share of the whole is what the contribution of each one shows
         public void AttackPoint(Player plr, int points)
         {
             if (points <= 0)
@@ -295,7 +274,6 @@ namespace Netsphere.Game.GameRules
                 StateMachine.Fire(GameRuleStateTrigger.StartResult);
         }
 
-        // one man down does not end the stage, all of them being down does
         public void StageFailed(Player plr)
         {
             if (plr != null)
@@ -309,7 +287,6 @@ namespace Netsphere.Game.GameRules
                 StateMachine.Fire(GameRuleStateTrigger.StartResult);
         }
 
-        // thirty pen and one of his ten revives. Without either of the two he is out of the stage
         public void Respawn(Player plr)
         {
             if (plr.RoomInfo.ArcadeRespawnCount <= 0 || plr.PEN < ReviveCost)
@@ -327,9 +304,6 @@ namespace Netsphere.Game.GameRules
             plr.Session?.SendAsync(new SRefreshCashInfoAckMessage(plr.PEN, plr.AP));
         }
 
-        // the eight stages of a difficulty are worth a capsule, and the board starts over so it
-        // can be earned again. Without the item in the shop nobody gets anything instead of the
-        // match falling over
         private void GiveAllClearReward(Player plr, byte difficulty)
         {
             if (!plr.stats.Arcade.IsDifficultyCleared(difficulty))
@@ -367,8 +341,6 @@ namespace Netsphere.Game.GameRules
             SendStageInfo(plr);
         }
 
-        // the board of the lobby: eight stages by three difficulties, with the ones he has
-        // already cleared marked
         public static void SendStageInfo(Player plr)
         {
             plr.Session?.SendAsync(new SArcadeMapScoreAckMessage());
@@ -401,9 +373,6 @@ namespace Netsphere.Game.GameRules
 
     internal class ArcadePlayerRecord : PlayerRecord
     {
-        // the monsters he put down are worth a point each. The damage of the boss runs in the
-        // hundreds and it only decides the share of the contribution bar, it has no business in
-        // the score: with it in here the experience of the match hit its ceiling every time
         public override uint TotalScore => (5 * QueenKills) + BonusKillAssists + Kills;
 
         public uint QueenKills { get; set; }
@@ -418,9 +387,6 @@ namespace Netsphere.Game.GameRules
         {
             base.Serialize(w, isResult);
 
-            // nine integers, which is what the record of the client reads. The result screen
-            // takes the first as the HP points, the second as the battle points and the third
-            // as the time points, and works out the total and the accumulated score itself
             w.Write(Math.Min(100, Math.Max(0, Player.RoomInfo.ArcadeRespawnCount * 10)));
             w.Write((int)KilledMonster);
             w.Write((int)Player.RoomInfo.PlayTime.TotalSeconds);
@@ -440,8 +406,6 @@ namespace Netsphere.Game.GameRules
             KilledMonster = 0;
         }
 
-        // the mode paid nothing at all. The later seasons run it off the battle royal rates, the
-        // same shape every other mode here uses
         public override uint GetExpGain(out uint bonusExp)
         {
             base.GetExpGain(out bonusExp);

@@ -17,8 +17,6 @@ namespace ProudNet.Handlers
             return session.SendAsync(new ReliablePongMessage()); //--> sends this message, CORE gets classic tcp protocol info that client got the message and calcs ping, missing here!!
         }
 
-        // a direct link between two members went down. The other end has to be told, or he keeps
-        // talking to a peer that is not listening any more instead of going through the relay
         [MessageHandler(typeof(P2P_NotifyDirectP2PDisconnectedMessage))]
         public void P2P_NotifyDirectP2PDisconnected(ProudSession session, P2P_NotifyDirectP2PDisconnectedMessage message)
         {
@@ -139,7 +137,6 @@ namespace ProudNet.Handlers
             //if (stateA.JitTriggered && stateB.JitTriggered) //prevents p2p from working correctly
             //{
             //}
-
 
             //Proud::INetServerImpl_CreateUdpSocketsIfNeeded(remotePeerA)  not needed? dunno it would send a S2C_RequestCreateUdpSocketMessage to client if it has no free sockets BUT its useless??? clients did already communicate?!
             //Proud::INetServerImpl_CreateUdpSocketsIfNeeded(remotePeerB)  not needed? dunno it would send a S2C_RequestCreateUdpSocketMessage to client if it has no free sockets BUT its useless??? clients did already communicate?!

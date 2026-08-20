@@ -188,9 +188,6 @@ namespace Netsphere.Network
             var plr = gameSession.Player;
             if (plr != null)
             {
-                // every step on its own: this used to be one straight run, and a throw halfway
-                // through (a room that says no, the database being down on the save) left the
-                // player in the channel, in his room and in the player list, alive forever
                 Step(() => plr.Room?.Leave(plr), gameSession, "leaving the room");
                 Step(() => plr.Channel?.Leave(plr), gameSession, "leaving the channel");
                 Step(() => plr.Save(), gameSession, "saving");
@@ -273,10 +270,6 @@ namespace Netsphere.Network
             }
         }
 
-        // a client that dies without closing the connection, a crash or a pulled cable, keeps
-        // its session, its slot in the room and its line in the channel list. The speedhack ping
-        // comes in on its own every few seconds, so a session that has not sent one in a while
-        // is not there any more
         private static readonly TimeSpan DeadSessionTimeout = TimeSpan.FromSeconds(90);
         private TimeSpan _deadSessionTimer;
 
@@ -490,7 +483,6 @@ namespace Netsphere.Network
 
             Mapper.Register<PlayerItem, ItemDurabilityInfoDto>()
                 .Member(dest => dest.ItemId, src => src.Id);
-
 
             Mapper.Register<Player, UserDataDto>()
                 .Member(dest => dest.AccountId, src => src.Account.Id)

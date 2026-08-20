@@ -5,8 +5,6 @@ namespace Netsphere.Network.Data.Game
     [BlubContract]
     public class RandomShopItemDto
     {
-        // 0 = costume, 1 = weapon. the client keys the result record by this, a wrong
-        // value leaves the page rolling forever
         [BlubMember(0)]
         public uint Tab { get; set; }
 

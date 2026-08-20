@@ -160,9 +160,6 @@ namespace ProudNet.Handlers
             var target = session.P2PGroup?.Members.GetValueOrDefault(message.HostId)?.Session;
             if (target == null || !target.UdpEnabled)
                 return;
-            // what goes back is the address the probe came from, which is his own on the outside
-            // of his router. It used to answer with the address of the other member, so nobody
-            // ever learnt the port his own router had opened
             session.SendUdpAsync(new PeerUdp_ServerHolepunchAckMessage(message.MagicNumber, session.UdpEndPoint, target.HostId));
         }
 
@@ -177,11 +174,6 @@ namespace ProudNet.Handlers
             if (connectionState == null)
                 return;
 
-            // what he reports is his own pair of addresses for this link, and it belongs to his
-            // side of it. It used to be written into the other peer, and the address the other
-            // one was told to shoot at was built out of his address with the port of the local
-            // network of the first: a port no router has open unless somebody forwarded it by
-            // hand, which is why the punch only ever worked with the ports forwarded
             connectionState.PeerUdpHolepunchSuccess = true;
             connectionState.LocalEndPoint = message.LocalEndPoint;
             connectionState.EndPoint = message.EndPoint;
@@ -190,7 +182,6 @@ namespace ProudNet.Handlers
             if (otherState == null || !otherState.PeerUdpHolepunchSuccess)
                 return;
 
-            // both sides are through, so each one gets the pair the other one reported
             peer.SendAsync(new RequestP2PHolepunchMessage(message.HostId, otherState.LocalEndPoint, otherState.EndPoint));
             connectionState.RemotePeer.SendAsync(new RequestP2PHolepunchMessage(session.HostId, connectionState.LocalEndPoint, connectionState.EndPoint));
         }

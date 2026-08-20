@@ -78,8 +78,6 @@ namespace Netsphere.Network.Services
             session.Player.Channel?.Leave(session.Player);
         }
 
-        // notes already had a limit, the chat had none, and whatever came in was handed to
-        // everyone in the channel
         private const int MaxChatLength = 128;
 
         [MessageHandler(typeof(CChatMessageReqMessage))]

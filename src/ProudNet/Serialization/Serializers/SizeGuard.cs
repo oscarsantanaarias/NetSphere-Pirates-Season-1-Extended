@@ -2,9 +2,6 @@ using System.IO;
 
 namespace ProudNet.Serialization.Serializers
 {
-    // The array length that arrives on the wire, checked before anything is allocated. It used
-    // to be taken at face value, so a single packet claiming a huge count allocated it right
-    // there while the message was still being decoded.
     public static class SizeGuard
     {
         public const int MaxArrayLength = 4096;

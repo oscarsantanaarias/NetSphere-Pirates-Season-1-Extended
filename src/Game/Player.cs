@@ -45,7 +45,6 @@ namespace Netsphere
         public DenyManager DenyManager { get; }
         public Mailbox Mailbox { get; }
 
-        // friendAccountId -> FriendState (1=Requesting, 2=InList, 3=RequestDialog). In-memory.
         public ConcurrentDictionary<ulong, uint> Friends { get; } = new ConcurrentDictionary<ulong, uint>();
 
         public Account Account { get; set; }
@@ -60,8 +59,6 @@ namespace Netsphere
 
         internal bool SentPlayerList { get; set; }
 
-        // set while his user data says he is inside the tutorial, so the reward can be paid
-        // when he comes back out of it
         public bool InTutorial { get; set; }
 
         public byte TutorialState
@@ -169,7 +166,6 @@ namespace Netsphere
             get { return _totalDeaths; }
             set { _totalDeaths = value; NeedsToSave = true; }
         }
-
 
         public Player(GameSession session, Account account, PlayerDto dto)
         {
@@ -385,11 +381,6 @@ namespace Netsphere
         /// <param name="message">The message to send</param>
         public void SendConsoleMessage(string message)
         {
-            // the client labels every console answer with the result byte: 0 is the only one
-            // that reads "Success", 3 and 4 are other messages and anything else comes out as
-            // "Unknown Error Code", which is what the console used to say before every reply.
-            // One answer is one line in the window, so anything with newlines in it has to go
-            // as several answers or it comes out as one line running off the screen
             var color = message.StartsWith("{CB-") ? message.Substring(0, message.IndexOf('}') + 1) : "";
 
             foreach (var line in message.Split('\n'))

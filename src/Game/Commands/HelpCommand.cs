@@ -5,8 +5,6 @@ using Netsphere.Network;
 
 namespace Netsphere.Commands
 {
-    // the console answered "Unknown command" to everything it did not know and there was no way
-    // to find out what it did know, short of reading the source
     internal class HelpCommand : ICommand
     {
         public HelpCommand()
@@ -26,8 +24,6 @@ namespace Netsphere.Commands
         {
             var level = plr?.Account.SecurityLevel ?? SecurityLevel.Developer;
 
-            // one line each: the console window is a single line tall and the long list ran off
-            // the right edge of the screen
             foreach (var cmd in server.CommandManager.Commands.Where(c => level >= c.Permission))
             {
                 var text = new StringBuilder(cmd.Name);

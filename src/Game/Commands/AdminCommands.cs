@@ -7,8 +7,6 @@ using Netsphere.Network.Message.Game;
 
 namespace Netsphere.Commands
 {
-    // What the console was missing to be of any use: who is online, where somebody is, a notice
-    // to everyone, and the handful of things a GM ends up doing by hand in the database.
     internal class AdminCommands : ICommand
     {
         public string Name { get; }
@@ -334,8 +332,6 @@ namespace Netsphere.Commands
                 if (target == null)
                     return true;
 
-                // only for as long as he stays connected: the security level lives in the auth
-                // database and this server does not write to it
                 target.Account.SecurityLevel = (SecurityLevel)level;
                 Say(plr, $"{target.Account.Nickname} is {(SecurityLevel)level} until he logs out");
                 return true;

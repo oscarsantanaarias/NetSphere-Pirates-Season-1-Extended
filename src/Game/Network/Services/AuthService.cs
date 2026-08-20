@@ -171,7 +171,6 @@ namespace Netsphere.Network.Services
                 oldPlr?.Disconnect();
             }
             
-
             if (GameServer.Instance.PlayerManager.Contains(account.Id))
             {
                 Logger.Error()
@@ -376,7 +375,6 @@ namespace Netsphere.Network.Services
                     Style = new CharacterStyle(@char.Gender, @char.Hair.Variation, @char.Face.Variation, @char.Shirt.Variation, @char.Pants.Variation, @char.Slot)
                 }).ConfigureAwait(false);
 
-
                 var message = new SCharacterEquipInfoAckMessage
                 {
                     Slot = @char.Slot,
@@ -408,8 +406,6 @@ namespace Netsphere.Network.Services
                 TutorialState = (uint)(Config.Instance.Game.EnableTutorial ? plr.TutorialState : 2),
                 Nickname = plr.Account.Nickname,
 
-                // the side panel reads its numbers from here, not from the user data ack the
-                // popup uses, so without these five it sat at zero with the pen and the exp right
                 DMStats = plr.stats.DeathMatch.GetStatsDto(),
                 TDStats = plr.stats.TouchDown.GetStatsDto(),
                 ChaserStats = plr.stats.Chaser.GetStatsDto(),
@@ -420,10 +416,6 @@ namespace Netsphere.Network.Services
             await session.SendAsync(new SServerResultInfoAckMessage(ServerResult.WelcomeToS4World2))
                 .ConfigureAwait(false);
 
-            // the shop version, pushed instead of waiting for the client to ask. it compares it
-            // against the four dates of its cached shop\*.s4 files and asks for the blobs when
-            // they differ, which is the only way it ever drops a stale shop. S10 does the same
-            // at the end of its login
             var shopVersion = GameServer.Instance.ResourceCache.GetShop().Version;
             await session.SendAsync(new SNewShopUpdateCheckAckMessage
             {
@@ -502,9 +494,6 @@ namespace Netsphere.Network.Services
                         continue;
                     }
 
-                    // whatever it costs is beside the point, it is given away. The permanent
-                    // price is the one worth handing out, and only if the item has none does it
-                    // fall back to the first one it finds
                     var itemInfo = shopItem.ItemInfos.FirstOrDefault(i => i.PriceGroup.Prices.Any(p => p.PeriodType == ItemPeriodType.None))
                                    ?? shopItem.ItemInfos.FirstOrDefault();
 
@@ -529,11 +518,8 @@ namespace Netsphere.Network.Services
             //session.Send(new SEquipedBoostItemAckMessage());
             //session.Send(new SClearInvalidateItemAckMessage());
 
-            // which arcade stages he has cleared, or the board of the mode opens empty
             Netsphere.Game.GameRules.ArcadeGameRule.SendStageInfo(plr);
 
-            // the mission window does not repaint when STaskInfoAck arrives, so the tasks
-            // have to be there before the lobby opens it
             await MissionService.SendMissionInfo(session).ConfigureAwait(false);
         }
 

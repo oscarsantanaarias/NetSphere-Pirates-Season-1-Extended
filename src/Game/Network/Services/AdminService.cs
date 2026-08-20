@@ -10,7 +10,6 @@ namespace Netsphere.Network.Services
 {
     internal class AdminService : ProudMessageHandler
     {
-        // ReSharper disable once InconsistentNaming
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         [MessageHandler(typeof(CAdminShowWindowReqMessage))]
@@ -24,8 +23,6 @@ namespace Netsphere.Network.Services
         {
             var args = message.Command.GetArgs();
 
-            // a command that threw used to travel all the way up and kill the connection:
-            // one typo in the console and the player was back at the server list
             try
             {
                 if (!server.CommandManager.Execute(session.Player, args))

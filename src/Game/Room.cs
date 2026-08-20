@@ -111,9 +111,6 @@ namespace Netsphere
 
         public void Update(TimeSpan delta)     //Host change midmatch based on who has the least ping via unreliableping
         {
-            // an empty room goes away, but not the one that was just made: between the create
-            // and the master walking in there is a gap, and a tick landing in it disposed the
-            // room in front of everybody, so it showed up in the list and vanished
             if (Players.Count == 0)
             {
                 if (_hadPlayers)
@@ -122,7 +119,6 @@ namespace Netsphere
                     return;
                 }
 
-                // and one nobody ever walked into cannot sit there forever either
                 _emptySince += delta;
                 if (_emptySince >= TimeSpan.FromSeconds(30))
                     RoomManager.Remove(this);
@@ -517,9 +513,6 @@ namespace Netsphere
                 ((Netsphere.Game.GameRules.ChaserGameRule)gameRule).ParkIntruder(plr);
             }
 
-            // captain repaints the whole scoreboard off the briefing, so sending it to the room
-            // in the middle of a round threw everyone's numbers back. He gets his own round
-            // information instead and joins the count of captains when the next round starts
             else if (gameRule.GameRule == GameRule.Captain && isPlaying)
                 ((Netsphere.Game.GameRules.CaptainGameRule)gameRule).IntrudeCompleted(plr);
 

@@ -36,7 +36,6 @@ namespace ProudNet
             return @this.ReadBytes(size);
         }
 
-        // the size came straight from the packet into ReadBytes, which allocates it
         private const int MaxStringLength = 4096;
         private const int MaxStructLength = 0x10000;
 

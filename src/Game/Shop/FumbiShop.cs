@@ -21,7 +21,6 @@ namespace Netsphere.Shop
     {
         public const uint RollCostPEN = 10000;
 
-        // same period pool the S4 fumbi uses, all equally likely
         private static readonly ItemPeriodType[] PeriodTypes =
         {
             ItemPeriodType.Days,
@@ -51,14 +50,6 @@ namespace Netsphere.Shop
             }
         }
 
-        // the client rejects a costume that does not match the character gender
-        // (LOBBY_RANDOMSHOP_NOT_SEX), so the costume pool is filtered by the gender the
-        // request carries.
-        // selected is the item the player picked on the page (request HeldItemNumber, 0 if
-        // none). for costumes the roll stays inside its sub category, so picking Shoes gives
-        // shoes; the weapon tab rolls any weapon. with hold set that exact item is kept.
-        // costume sub categories: 0 hair, 1 face, 2 top, 3 pants, 4 gloves, 5 shoes,
-        // 6 accessories, 7 pets
         public static FumbiRollEntry Roll(bool isWeapon, Gender gender, uint selected, bool hold)
         {
             EnsureBuilt();
@@ -124,8 +115,6 @@ namespace Netsphere.Shop
             LastNumber[player] = itemNumber;
         }
 
-        // on entering the pick state the client fills the item slot with the last rolled
-        // item, so HeldItemNumber only means a real choice when it differs from it
         public static uint Selected(Player player, uint heldItemNumber)
         {
             uint last;
@@ -173,8 +162,6 @@ namespace Netsphere.Shop
 
                 foreach (var item in shop.Items.Values)
                 {
-                    // the shop table carries item numbers the client has never heard of,
-                    // and its slot draws nothing for them. iteminfo.x7 is the truth here
                     if (!known.ContainsKey(item.ItemNumber))
                         continue;
 
@@ -182,15 +169,10 @@ namespace Netsphere.Shop
                         item.ItemNumber.Category != ItemCategory.Weapon)
                         continue;
 
-                    // the fumbi only has buttons for Head(0), Shirt(2), Pants(3), Glove(4)
-                    // and Shoes(5). Face(1) and Acc(6) are not part of it
                     if (item.ItemNumber.Category == ItemCategory.Costume &&
                         (item.ItemNumber.SubCategory == 1 || item.ItemNumber.SubCategory > 5))
                         continue;
 
-                    // in this shop data only 12 items (all skills) sit in the PEN price
-                    // group, everything else is PREM. the roll is paid in PEN either way,
-                    // so take whatever price group the item has, preferring PEN
                     ShopItemInfo info = null;
                     foreach (var candidate in item.ItemInfos)
                     {

@@ -17,7 +17,6 @@ namespace Netsphere.Network.Services
 {
     internal class CommunityService : ProudMessageHandler
     {
-        // ReSharper disable once InconsistentNaming
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         [MessageHandler(typeof(CSetUserDataReqMessage))]
@@ -33,10 +32,6 @@ namespace Netsphere.Network.Services
                     .ConfigureAwait(false);
             }
 
-            // the tutorial runs entirely on the client, it sends no packet of its own, and the
-            // only thing that reaches us is the room id of this update: 0xFFFFFFFD while he is
-            // inside it. So the prize is paid when he walks back out, once, and the state is
-            // written so the client stops asking on every login
             const uint tutorialRoomId = 0xFFFFFFFD;
             const uint tutorialReward = 5000;
             const byte tutorialDone = 2;
@@ -88,8 +83,6 @@ namespace Netsphere.Network.Services
         {
             var plr = session.Player;
 
-            // inside a room the client asks with a LongPeerId, the account in the low 48 bits
-            // and the peer id on top, so the raw value matched nobody
             var accountId = message.AccountId & 0x0000FFFFFFFFFFFF;
 
             if (plr.Account.Id == accountId)
@@ -597,7 +590,6 @@ namespace Netsphere.Network.Services
                 return;
             }
 
-            // decline combi: avisa "no aceptado" al que pidio y borra el pendiente
             if (verb == 3)
             {
                 CombiRowDto row;

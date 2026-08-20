@@ -50,8 +50,6 @@ namespace Netsphere.Game.GameRules
                 .OnEntry(() => { First = null; });
         }
 
-        // the leader only ever went out when it changed, so whoever walked into a running
-        // match never learned who it was and drew everybody, leader included, in the lower box
         public override void PlayerJoined(object room, RoomPlayerEventArgs e)
         {
             base.PlayerJoined(room, e);

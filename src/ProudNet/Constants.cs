@@ -147,7 +147,6 @@ namespace ProudNet
         HolepunchFreqFail
     }
 
-    // prints every packet in and out, set S1_PACKETLOG=0 to silence it
     internal static class PacketLog
     {
         public static readonly bool Enabled = Environment.GetEnvironmentVariable("S1_PACKETLOG") != "0";
@@ -156,7 +155,6 @@ namespace ProudNet
 
         public static void Write(bool incoming, ushort opCode, string name)
         {
-            // ping, timesync and the proudnet internals would drown everything else
             if (opCode >= 64000 || opCode == 50011 || opCode == 60022 || opCode == 11)
                 return;
 

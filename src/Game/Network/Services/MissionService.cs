@@ -15,7 +15,6 @@ namespace Netsphere.Network.Services
 {
     internal class MissionService : ProudMessageHandler
     {
-        // ReSharper disable once InconsistentNaming
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
 
         private static readonly Random Random = new Random();
@@ -142,9 +141,6 @@ namespace Netsphere.Network.Services
             if (info == null)
                 return;
 
-            // the client reports the progress it already knows, the one we gave it, and expects
-            // the step to be added here: it sends one of these per action, so four wall jumps in a
-            // row all arrive as 2/3 until we move the number ourselves
             var progress = 0;
             var completed = false;
 
@@ -200,15 +196,7 @@ namespace Netsphere.Network.Services
                 .ConfigureAwait(false);
         }
 
-
-        // The client never advances a task by itself: the only two calls into its task manager
-        // come from the STaskUpdateAck and STaskIngameUpdateAck handlers (sub_AD87B0 / sub_AD8A10),
-        // and the CTaskNotifyReq that would report progress is only wired to the "ntask" GM console
-        // command. So the counting is ours.
         //
-        // TCCT_ACTOR_STATE (wall jump, dodge, plasma combos) is the one kind we cannot see: those
-        // are actor states on the client and nothing reaches the server. TCCT_NEW_RECORD and
-        // TCCT_RANKING are left out too, they need the ranking tables.
 
         public static void OnWeaponKill(Player plr, AttackAttribute weapon)
         {
@@ -219,8 +207,6 @@ namespace Netsphere.Network.Services
 
         public static void OnGamePlayed(Player plr, GameRule rule, int mapId)
         {
-            // a map task names the mode too, "Play Touch Down: Station 2", and the mode lives on
-            // the base_setting the task hangs from
             Func<Resource.TaskInfo, bool> sameMode = info => info.Mode == "TMT_COMMON" || info.Mode == ModeKey(rule);
 
             Advance(plr, "TCCT_ATTEND_GAME", null, 1, sameMode);
@@ -245,7 +231,6 @@ namespace Netsphere.Network.Services
                 Advance(plr, "TCCT_GET_LICENSE", name, 1);
         }
 
-        // the goal here is the level itself, so it is done or not done, it does not count up
         public static void OnLevelUp(Player plr)
         {
             Advance(plr, "TCCT_LEVEL_UP", null, 0, info =>
@@ -329,7 +314,6 @@ namespace Netsphere.Network.Services
             }
         }
 
-        // the xml names the weapon, the kill only carries the attack that landed
         private static string WeaponKey(AttackAttribute weapon)
         {
             switch (weapon)
@@ -437,8 +421,6 @@ namespace Netsphere.Network.Services
             }
         }
 
-        // the client hardcodes "???" / "ERROR" for a slot without a task, so every slot of
-        // every level is kept filled: 5x3 compulsory + 4x3 weekly
         private static async Task FillEmptySlots(Player plr, List<PlayerMissionDto> rows)
         {
             var resource = GameServer.Instance.ResourceCache.GetTasks();

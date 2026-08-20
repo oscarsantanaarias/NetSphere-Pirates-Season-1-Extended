@@ -14,7 +14,6 @@ namespace Netsphere.Network.Data.Game
         [BlubMember(2)]
         public uint TD { get; set; }
 
-        // client divides every average by this / 20.0f
         [BlubMember(3)]
         public uint MatchesTimes20 { get; set; }
 

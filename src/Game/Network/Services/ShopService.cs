@@ -52,7 +52,6 @@ namespace Netsphere.Network.Services
                 return;
             }
 
-
             #region NewShopPrice
 
             using (var w = new BinaryWriter(new MemoryStream()))
@@ -159,10 +158,6 @@ namespace Netsphere.Network.Services
             }
         }
 
-        // one basket, one outcome: everything is checked first and only then is anything
-        // charged or created. The loop used to charge and create as it went, so a basket whose
-        // third line was wrong left the first two bought and paid for and answered with an
-        // error, and the client had no idea which ones went through
         private const int MaxBasketSize = 24;
 
         [MessageHandler(typeof(CBuyItemReqMessage))]
@@ -239,8 +234,6 @@ namespace Netsphere.Network.Services
                     return;
                 }
 
-                // a price at or below zero would be subtracted as an unsigned number and hand
-                // the account a fortune instead of taking anything off it
                 if (price.Price <= 0)
                 {
                     Logger.Error()
@@ -316,7 +309,6 @@ namespace Netsphere.Network.Services
                 lines.Add(Tuple.Create(item, shopItemInfo, price));
             }
 
-            // the whole basket against the wallet, not one line at a time
             if (plr.PEN < pen || plr.AP < ap)
             {
                 await session.SendAsync(new SBuyItemAckMessage(ItemBuyResult.NotEnoughMoney))
@@ -362,8 +354,6 @@ namespace Netsphere.Network.Services
                 return;
             }
 
-            // the shop item carries Gender (None/Male/Female), the character a CharacterGender
-            // (Male/Female), and the request the same 0/1 as the character, 2 for either
             var gender = plr.CharacterManager.CurrentCharacter.Gender == CharacterGender.Female
                 ? Gender.Female
                 : Gender.Male;
@@ -416,8 +406,6 @@ namespace Netsphere.Network.Services
 
             FumbiShop.SetLastRoll(plr, rolled.Id, entry.ItemNumber);
 
-            // a slot on Stop keeps what it had, which is what the help calls Resume Dance:
-            // the client sends the value it is holding and expects it back untouched
             var color = message.HoldColor != 0 && message.HeldColor >= 0
                 ? (uint)message.HeldColor
                 : entry.Color;
@@ -451,8 +439,6 @@ namespace Netsphere.Network.Services
 
             FumbiShop.ClearLastRoll(plr);
 
-            // the client only closes its "Requesting" popup when it gets a result with
-            // item number 0 for this tab
             await session.SendAsync(new SRandomShopItemInfoAckMessage
             {
                 Item = new RandomShopItemDto { Tab = message.Tab }

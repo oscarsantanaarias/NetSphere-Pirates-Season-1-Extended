@@ -227,9 +227,6 @@ namespace Netsphere.Network.Services
 
         private static readonly Random TeamRng = new Random();
 
-        // the two buttons of the mix window nobody was answering: shuffle deals everyone out
-        // again at random, assign only evens the sides out. Both are the master's and both are
-        // lobby only, same as the manual swap next to them
         [MessageHandler(typeof(CAutoMixingTeamReqMessage))]
         public void CAutoMixingTeamReq(GameSession session)
         {
@@ -262,7 +259,6 @@ namespace Netsphere.Network.Services
                 }
                 catch (TeamLimitReachedException)
                 {
-                    // the other side is full, he stays where he is
                 }
             }
 
@@ -284,7 +280,6 @@ namespace Netsphere.Network.Services
             if (alpha == null || beta == null)
                 return;
 
-            // one at a time from the fuller side, until they are level or the move is refused
             while (true)
             {
                 var from = alpha.Players.Count() > beta.Players.Count() ? alpha : beta;
@@ -389,7 +384,6 @@ namespace Netsphere.Network.Services
                 //Specific Implementation since in chaser mode it gets called when intrusion from inside the room
                 plr.Room.BroadcastBriefing(plr);
 
-                // and in battle royal, who the leader is: he walks in with that box empty
                 var br = plr.Room.GameRuleManager.GameRule as BattleRoyalGameRule;
                 if (br?.First != null)
                     session.SendAsync(new SGameRuleChangeTheFirstAckMessage(br.First.Account.Id));
@@ -541,8 +535,6 @@ namespace Netsphere.Network.Services
             switch (message.Reason)
             {
                 case RoomLeaveReason.Kicked:
-                    // it was an &&, so it only stopped you if you were neither the master nor
-                    // in the lobby: anybody could kick anybody while the room waited
                     if (room.Master != plr ||
                         !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Waiting))
                         return;
@@ -575,8 +567,6 @@ namespace Netsphere.Network.Services
             if (room?.GameRuleManager.GameRule.GameRule != GameRule.Chaser)
                 return;
             //Logger.ForAccount(plr.Account).Information($"Charser Unk {message.Unk}");
-            // the account id comes from the packet, so anyone could hand points to anyone,
-            // and an id that is not in the room went in as null and took the handler down
             var rule = (ChaserGameRule)room.GameRuleManager.GameRule;
             if (rule.Chaser != session.Player)
                 return;
@@ -592,7 +582,6 @@ namespace Netsphere.Network.Services
         public void CSlaughterHealPointReqMessage(GameSession session, CSlaughterHealPointReqMessage message)
         {
             var plr = session.Player;
-            // no rule guards this one, so it used to be callable from outside a room
             if (plr?.Room == null)
                 return;
 
@@ -611,8 +600,6 @@ namespace Netsphere.Network.Services
             if (killer == null)
                 return;
 
-            // both ids ride in the packet, so a client could hand kills to anybody. the one
-            // sending it has to be part of it, either the one who died or the one who killed
             if (killer != plr && message.Score.Target.AccountId != plr.Account.Id)
                 return;
 
@@ -621,8 +608,6 @@ namespace Netsphere.Network.Services
             //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
             if (message.Score.Target.PeerId.Unk != 1)
             {
-                // in arcade what he shoots at is a monster and it went straight into the bin
-                // here, so nobody ever had a battle point or a contribution of the stage
                 GetArcade(session)?.MonsterKilled(killer);
                 return;
             }
