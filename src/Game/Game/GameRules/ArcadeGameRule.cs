@@ -54,7 +54,6 @@ namespace Netsphere.Game.GameRules
 
             StateMachine.Configure(GameRuleState.Result)
                 .SubstateOf(GameRuleState.Playing)
-                .OnEntry(SendResult)
                 .Permit(GameRuleStateTrigger.EndGame, GameRuleState.Waiting);
         }
 
@@ -180,6 +179,60 @@ namespace Netsphere.Game.GameRules
         // what the host sends while the stage runs: how many monsters each one has put down. The
         // highest seen is kept so a late packet does not take kills away, the share of the work
         // is worked out from the total and the table goes back to the room
+        // one monster down. The client sends these as ordinary kills with a target that is not
+        // a player, and they are what the contribution of the stage is shared out by
+        public void MonsterKilled(Player plr)
+        {
+            if (plr == null)
+                return;
+
+            var previous = _killedByAccount.ContainsKey(plr.Account.Id) ? _killedByAccount[plr.Account.Id] : 0;
+            _killedByAccount[plr.Account.Id] = previous + 1;
+
+            var record = plr.RoomInfo.Stats as ArcadePlayerRecord;
+            if (record != null)
+                record.KilledMonster = (uint)_killedByAccount[plr.Account.Id];
+
+            BroadcastShares();
+        }
+
+        // every player reports his own damage while the stage runs, one number at a time. The
+        // share of the whole is what the contribution of each one shows
+        public void AttackPoint(Player plr, int points)
+        {
+            if (points <= 0)
+                return;
+
+            var previous = _killedByAccount.ContainsKey(plr.Account.Id) ? _killedByAccount[plr.Account.Id] : 0;
+            _killedByAccount[plr.Account.Id] = previous + points;
+
+            BroadcastShares();
+        }
+
+        private void BroadcastShares()
+        {
+            var total = _killedByAccount.Values.Sum(killed => (long)killed);
+
+            foreach (var entry in _killedByAccount)
+            {
+                var target = Room.TeamManager.Players.FirstOrDefault(p => p.Account.Id == entry.Key);
+                if (target == null)
+                    continue;
+
+                ArcadeScoreSyncDto score;
+                if (!_scoreByAccount.TryGetValue(entry.Key, out score))
+                {
+                    score = new ArcadeScoreSyncDto { AccountId = entry.Key };
+                    _scoreByAccount[entry.Key] = score;
+                }
+
+                score.Unk3 = entry.Value;
+                score.Unk4 = total > 0 ? (int)Math.Min(100, (100 * entry.Value) / total) : 0;
+            }
+
+            Room.Broadcast(new SArcadeScoreSyncAckMessage { Scores = _scoreByAccount.Values.ToArray() });
+        }
+
         public void ScoreSync(ArcadeScoreSyncReqDto[] scores)
         {
             if (scores == null)
@@ -333,42 +386,6 @@ namespace Netsphere.Game.GameRules
             });
         }
 
-        // the result screen of the arcade does not read the player record, it reads this block,
-        // one row per player, and the row of whoever is looking has to come first. That is why
-        // every column of it came out at zero
-        private void SendResult()
-        {
-            var players = Room.TeamManager.Players.ToArray();
-
-            foreach (var receiver in players)
-            {
-                using (var stream = new MemoryStream())
-                using (var w = new BinaryWriter(stream))
-                {
-                    foreach (var plr in players.OrderByDescending(p => p == receiver))
-                    {
-                        var isReceiver = plr == receiver;
-                        var record = plr.RoomInfo.Stats as ArcadePlayerRecord;
-
-                        w.Write(isReceiver ? 1ul : plr.Account.Id);
-                        w.Write(record != null ? (int)record.KilledMonster : 0);
-                        w.Write(Math.Min(100, Math.Max(0, plr.RoomInfo.ArcadeRespawnCount * 10)));
-                        w.Write((int)plr.RoomInfo.PlayTime.TotalSeconds);
-                        w.Write(isReceiver ? 1 : 0);
-                        w.Write(0);
-                        w.Write(0);
-                    }
-
-                    receiver.Session?.SendAsync(new SArcadeStageBriefingAckMessage
-                    {
-                        Unk1 = Stage,
-                        Unk2 = SubStage,
-                        Data = stream.ToArray()
-                    });
-                }
-            }
-        }
-
         private void ResetStage()
         {
             _killedByAccount.Clear();
@@ -384,7 +401,10 @@ namespace Netsphere.Game.GameRules
 
     internal class ArcadePlayerRecord : PlayerRecord
     {
-        public override uint TotalScore => (5 * QueenKills) + BonusKillAssists + KilledMonster;
+        // the monsters he put down are worth a point each. The damage of the boss runs in the
+        // hundreds and it only decides the share of the contribution bar, it has no business in
+        // the score: with it in here the experience of the match hit its ceiling every time
+        public override uint TotalScore => (5 * QueenKills) + BonusKillAssists + Kills;
 
         public uint QueenKills { get; set; }
         public uint BonusKillAssists { get; set; }

@@ -620,7 +620,12 @@ namespace Netsphere.Network.Services
 
             //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
             if (message.Score.Target.PeerId.Unk != 1)
+            {
+                // in arcade what he shoots at is a monster and it went straight into the bin
+                // here, so nobody ever had a battle point or a contribution of the stage
+                GetArcade(session)?.MonsterKilled(killer);
                 return;
+            }
 
             room.GameRuleManager.GameRule.OnScoreKill(killer, null, plr, message.Score.Weapon);
             MissionService.OnWeaponKill(killer, message.Score.Weapon);
@@ -825,7 +830,9 @@ namespace Netsphere.Network.Services
 
         [MessageHandler(typeof(CArcadeAttackPointReqMessage))]
         public void CArcadeAttackPointReq(GameSession session, CArcadeAttackPointReqMessage message)
-        { }
+        {
+            GetArcade(session)?.AttackPoint(session.Player, message.Unk);
+        }
 
         [MessageHandler(typeof(CArcadeScoreSyncReqMessage))]
         public void CArcadeScoreSyncReq(GameSession session, CArcadeScoreSyncReqMessage message)
