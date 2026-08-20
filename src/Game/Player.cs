@@ -385,8 +385,9 @@ namespace Netsphere
         /// <param name="message">The message to send</param>
         public void SendConsoleMessage(string message)
         {
-            // result 0 or the client prints its own "Unknown Error Code" in front of every
-            // answer the console gives
+            // the client labels every console answer with the result byte: 0 is the only one
+            // that reads "Success", 3 and 4 are other messages and anything else comes out as
+            // "Unknown Error Code", which is what the console used to say before every reply
             Session.SendAsync(new SAdminActionAckMessage { Result = 0, Message = message });
         }
 
