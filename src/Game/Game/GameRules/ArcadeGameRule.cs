@@ -398,16 +398,16 @@ namespace Netsphere.Game.GameRules
         {
             base.Serialize(w, isResult);
 
-            // the result screen reads three of these straight out of the record: the first one
-            // is the HP points, the fourth the battle points and the seventh the time points.
-            // The total and the accumulated score it works out by itself
+            // nine integers, which is what the record of the client reads. The result screen
+            // takes the first as the HP points, the second as the battle points and the third
+            // as the time points, and works out the total and the accumulated score itself
             w.Write(Math.Min(100, Math.Max(0, Player.RoomInfo.ArcadeRespawnCount * 10)));
-            w.Write(0);
-            w.Write(0);
             w.Write((int)KilledMonster);
-            w.Write(0);
-            w.Write(0);
             w.Write((int)Player.RoomInfo.PlayTime.TotalSeconds);
+            w.Write(0);
+            w.Write(0);
+            w.Write(0);
+            w.Write(0);
             w.Write(0);
             w.Write(0);
         }
