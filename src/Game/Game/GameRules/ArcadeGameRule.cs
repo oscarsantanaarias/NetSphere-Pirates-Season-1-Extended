@@ -1,15 +1,21 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Netsphere.Network.Data.Game;
 using Netsphere.Network.Data.GameRule;
 using Netsphere.Network.Message.Game;
 using Netsphere.Network.Message.GameRule;
+using Netsphere.Shop;
+using NLog;
 
 namespace Netsphere.Game.GameRules
 {
     internal class ArcadeGameRule : GameRuleBase
     {
+        // ReSharper disable once InconsistentNaming
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         private const int ReviveCost = 30;
         private const int RespawnsPerStage = 10;
 
@@ -21,6 +27,9 @@ namespace Netsphere.Game.GameRules
         public byte Stage { get; set; }
 
         public byte SubStage { get; set; }
+
+        // the room window sends the difficulty in the same request as the stage
+        public byte Difficulty => SubStage >= 1 && SubStage <= 3 ? SubStage : (byte)1;
 
         public override Briefing Briefing { get; }
 
@@ -202,6 +211,14 @@ namespace Netsphere.Game.GameRules
 
             Room.Broadcast(new SArcadeScoreSyncAckMessage { Scores = _scoreByAccount.Values.ToArray() });
 
+            var difficulty = Difficulty;
+            foreach (var plr in Room.TeamManager.PlayersPlaying.ToArray())
+            {
+                plr.stats.Arcade.MarkStageCleared(difficulty, Stage);
+                SendStageInfo(plr);
+                GiveAllClearReward(plr, difficulty);
+            }
+
             if (StateMachine.CanFire(GameRuleStateTrigger.StartResult))
                 StateMachine.Fire(GameRuleStateTrigger.StartResult);
         }
@@ -236,6 +253,65 @@ namespace Netsphere.Game.GameRules
 
             plr.Session?.SendAsync(new SArcadeRespawnAckMessage { Unk = plr.RoomInfo.ArcadeRespawnCount });
             plr.Session?.SendAsync(new SRefreshCashInfoAckMessage(plr.PEN, plr.AP));
+        }
+
+        // the eight stages of a difficulty are worth a capsule, and the board starts over so it
+        // can be earned again. Without the item in the shop nobody gets anything instead of the
+        // match falling over
+        private void GiveAllClearReward(Player plr, byte difficulty)
+        {
+            if (!plr.stats.Arcade.IsDifficultyCleared(difficulty))
+                return;
+
+            var itemNumber = new ItemNumber((uint)(4030022 + difficulty));
+            var shop = GameServer.Instance.ResourceCache.GetShop();
+
+            ShopItem shopItem;
+            if (!shop.Items.TryGetValue(itemNumber, out shopItem))
+            {
+                Logger.Warn($"Arcade reward {itemNumber} is not in the shop");
+                return;
+            }
+
+            var itemInfo = shopItem.ItemInfos.FirstOrDefault();
+            var price = itemInfo?.PriceGroup.Prices.FirstOrDefault();
+            if (price == null)
+            {
+                Logger.Warn($"Arcade reward {itemNumber} has no price to give it away with");
+                return;
+            }
+
+            plr.Inventory.Create(itemInfo, price, 0, 0, 1);
+            plr.Session?.SendAsync(new SArcadeRewardInfoAckMessage
+            {
+                Reward = new ArcadeRewardDto
+                {
+                    Unk1 = itemNumber,
+                    Unk4 = 1
+                }
+            });
+
+            plr.stats.Arcade.ResetClears(difficulty);
+            SendStageInfo(plr);
+        }
+
+        // the board of the lobby: eight stages by three difficulties, with the ones he has
+        // already cleared marked
+        public static void SendStageInfo(Player plr)
+        {
+            plr.Session?.SendAsync(new SArcadeMapScoreAckMessage());
+            plr.Session?.SendAsync(new SArcadeStageScoreAckMessage
+            {
+                Scores = (from stage in Enumerable.Range(1, ArcadeStats.Stages)
+                          from difficulty in Enumerable.Range(1, 3)
+                          select new ArcadeStageScoreDto
+                          {
+                              Unk1 = 50,
+                              Unk2 = (uint)stage,
+                              Unk3 = (uint)(difficulty - 1),
+                              Unk13 = (byte)(plr.stats.Arcade.IsStageCleared((byte)difficulty, (byte)stage) ? 1 : 0)
+                          }).ToArray()
+            });
         }
 
         private void ResetStage()

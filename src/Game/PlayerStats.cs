@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data;
 using System.Linq;
 using Dapper.FastCrud;
@@ -23,6 +23,7 @@ namespace Netsphere
             Chaser = new ChaserStats(_owner, playerDto);
             BattleRoyal = new BRStats(_owner, playerDto);
             Captain = new CPTStats(_owner, playerDto);
+            Arcade = new ArcadeStats(_owner);
         }
 
         public DMStats DeathMatch { get; }
@@ -30,6 +31,7 @@ namespace Netsphere
         public ChaserStats Chaser { get; }
         public BRStats BattleRoyal { get; }
         public CPTStats Captain { get; }
+        public ArcadeStats Arcade { get; }
 
         public ulong Won
         {

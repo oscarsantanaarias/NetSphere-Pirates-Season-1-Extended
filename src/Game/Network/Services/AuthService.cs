@@ -529,6 +529,9 @@ namespace Netsphere.Network.Services
             //session.Send(new SEquipedBoostItemAckMessage());
             //session.Send(new SClearInvalidateItemAckMessage());
 
+            // which arcade stages he has cleared, or the board of the mode opens empty
+            Netsphere.Game.GameRules.ArcadeGameRule.SendStageInfo(plr);
+
             // the mission window does not repaint when STaskInfoAck arrives, so the tasks
             // have to be there before the lobby opens it
             await MissionService.SendMissionInfo(session).ConfigureAwait(false);
