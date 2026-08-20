@@ -160,7 +160,10 @@ namespace ProudNet.Handlers
             var target = session.P2PGroup?.Members.GetValueOrDefault(message.HostId)?.Session;
             if (target == null || !target.UdpEnabled)
                 return;
-            session.SendUdpAsync(new PeerUdp_ServerHolepunchAckMessage(message.MagicNumber, target.UdpEndPoint, target.HostId));
+            // what goes back is the address the probe came from, which is his own on the outside
+            // of his router. It used to answer with the address of the other member, so nobody
+            // ever learnt the port his own router had opened
+            session.SendUdpAsync(new PeerUdp_ServerHolepunchAckMessage(message.MagicNumber, session.UdpEndPoint, target.HostId));
         }
 
         [MessageHandler(typeof(PeerUdp_NotifyHolepunchSuccessMessage))] //request holepunch --> results in ServerHandler.cs
@@ -169,20 +172,27 @@ namespace ProudNet.Handlers
             if (!session.UdpEnabled || !_server.UdpSocketManager.IsRunning)
                 return;
 
-            var A = session.P2PGroup?.Members[session.HostId];
-            var B = session.P2PGroup?.Members[message.HostId];
-            var connectionStateA = A.ConnectionStates.GetValueOrDefault(message.HostId);
-            var connectionStateB = connectionStateA.RemotePeer.ConnectionStates[session.HostId];
+            var peer = session.P2PGroup?.Members.GetValueOrDefault(session.HostId);
+            var connectionState = peer?.ConnectionStates?.GetValueOrDefault(message.HostId);
+            if (connectionState == null)
+                return;
 
-            connectionStateA.RemotePeer.EndPoint = message.EndPoint;              //save endpoints
-            connectionStateA.RemotePeer.LocalEndPoint = message.LocalEndPoint;    //save endpoints
-            connectionStateA.PeerUdpHolepunchSuccess = true;                            //ready
+            // what he reports is his own pair of addresses for this link, and it belongs to his
+            // side of it. It used to be written into the other peer, and the address the other
+            // one was told to shoot at was built out of his address with the port of the local
+            // network of the first: a port no router has open unless somebody forwarded it by
+            // hand, which is why the punch only ever worked with the ports forwarded
+            connectionState.PeerUdpHolepunchSuccess = true;
+            connectionState.LocalEndPoint = message.LocalEndPoint;
+            connectionState.EndPoint = message.EndPoint;
 
-            if (connectionStateB.PeerUdpHolepunchSuccess) //false at first, but then true for second client -> both clients are ready for holepunch
-            {
-                A.SendAsync(new RequestP2PHolepunchMessage(message.HostId, B.Session.UdpLocalEndPoint, new IPEndPoint(connectionStateA.RemotePeer.EndPoint.Address, connectionStateB.RemotePeer.LocalEndPoint.Port)));
-                B.Session.SendAsync(new RequestP2PHolepunchMessage(session.HostId, A.Session.UdpLocalEndPoint, new IPEndPoint(connectionStateB.RemotePeer.EndPoint.Address, connectionStateA.RemotePeer.LocalEndPoint.Port)));
-            }
+            var otherState = connectionState.RemotePeer?.ConnectionStates.GetValueOrDefault(session.HostId);
+            if (otherState == null || !otherState.PeerUdpHolepunchSuccess)
+                return;
+
+            // both sides are through, so each one gets the pair the other one reported
+            peer.SendAsync(new RequestP2PHolepunchMessage(message.HostId, otherState.LocalEndPoint, otherState.EndPoint));
+            connectionState.RemotePeer.SendAsync(new RequestP2PHolepunchMessage(session.HostId, connectionState.LocalEndPoint, connectionState.EndPoint));
         }
     }
 }
