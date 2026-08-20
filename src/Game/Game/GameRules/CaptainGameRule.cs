@@ -34,7 +34,7 @@ namespace Netsphere.Game.GameRules
             StateMachine.Configure(GameRuleState.Neutral)
                 .SubstateOf(GameRuleState.Playing)
                 .Permit(GameRuleStateTrigger.StartResult, GameRuleState.EnteringResult)
-                .OnEntry(_captainHelper.Reset);
+                .OnEntry(StartRound);
 
             StateMachine.Configure(GameRuleState.EnteringResult)
                 .SubstateOf(GameRuleState.Playing)
@@ -95,7 +95,7 @@ namespace Netsphere.Game.GameRules
                         _nextRoundTime += delta;
                         if (_nextRoundTime >= s_captainNextroundTime)
                         {
-                            _captainHelper.Reset();
+                            StartRound();
                             _waitingNextRound = false;
                         }
                     }
@@ -158,8 +158,15 @@ namespace Netsphere.Game.GameRules
             if (_captainHelper.Dead(target))
             {
                 GetRecord(killer).KillCaptains++;
+                if (GetRecord(killer).Kills > 0)
+                    GetRecord(killer).Kills--;
+
                 if (assist != null)
+                {
                     GetRecord(assist).KillAssistCaptains++;
+                    if (GetRecord(assist).KillAssists > 0)
+                        GetRecord(assist).KillAssists--;
+                }
             }
             else
             {
@@ -199,6 +206,21 @@ namespace Netsphere.Game.GameRules
             return teams.All(team => team.Players.Any(plr => plr.RoomInfo.IsReady || Room.Master == plr));
         }
 
+        // 21071 carries the round number and the seconds it has been running, the same two
+        // fields the later seasons send. It was going out on every death with the number of
+        // players still alive in it, which is not what the client reads
+        private void StartRound()
+        {
+            _captainHelper.Reset();
+            _subRoundTime = TimeSpan.Zero;
+
+            Room.Broadcast(new SCurrentRoundInformationAckMessage
+            {
+                Unk1 = (int)_currentRound + 1,
+                Unk2 = 0
+            });
+        }
+
         private void SubRoundEnd()
         {
             var teamwin = _captainHelper.TeamWin();
@@ -212,6 +234,8 @@ namespace Netsphere.Game.GameRules
                 // give all players winRound score
                 foreach (var plr in teamwin.PlayersPlaying)
                     GetRecord(plr).WinRound++;
+
+                Room.BroadcastBriefing();
             }
 
             var teamMgr = Room.TeamManager;
@@ -233,8 +257,8 @@ namespace Netsphere.Game.GameRules
                 Room.Broadcast(
                     new SCaptainSubRoundEndReasonAckMessage
                     {
-                        Unk1 = 0,
-                        Unk2 = (byte)(teamwin.Team == Team.Alpha ? 1 : 2)
+                        Unk1 = 3,
+                        Unk2 = (byte)teamwin.Team
                     });
             }
 
@@ -322,12 +346,7 @@ namespace Netsphere.Game.GameRules
             // and no room any more, and reading them was a null reference on the way out
             public bool Dead(Player target)
             {
-                var wasAlive = _alpha.Remove(target) | _beta.Remove(target);
-                if (!wasAlive)
-                    return false;
-
-                Room.Broadcast(new SCurrentRoundInformationAckMessage { Unk1 = _alpha.Count, Unk2 = _beta.Count });
-                return true;
+                return _alpha.Remove(target) | _beta.Remove(target);
             }
 
             public bool RoundOver()
@@ -343,9 +362,24 @@ namespace Netsphere.Game.GameRules
                 if (_beta.Count == 0)
                     return Room.TeamManager.GetValueOrDefault(Team.Alpha);
 
-                return _alpha.Count > _beta.Count
-                    ? Room.TeamManager.GetValueOrDefault(Team.Alpha)
-                    : Room.TeamManager.GetValueOrDefault(Team.Beta);
+                if (_alpha.Count > _beta.Count)
+                    return Room.TeamManager.GetValueOrDefault(Team.Alpha);
+
+                if (_beta.Count > _alpha.Count)
+                    return Room.TeamManager.GetValueOrDefault(Team.Beta);
+
+                // same number of survivors when the clock runs out, the round goes to whoever
+                // scored more and to nobody if that is level too. It used to go to beta always
+                var alphaScore = _alpha.Sum(plr => (long)plr.RoomInfo.Stats.TotalScore);
+                var betaScore = _beta.Sum(plr => (long)plr.RoomInfo.Stats.TotalScore);
+
+                if (alphaScore > betaScore)
+                    return Room.TeamManager.GetValueOrDefault(Team.Alpha);
+
+                if (betaScore > alphaScore)
+                    return Room.TeamManager.GetValueOrDefault(Team.Beta);
+
+                return null;
             }
 
             public void Update(TimeSpan delta)
@@ -391,7 +425,14 @@ namespace Netsphere.Game.GameRules
 
         internal class CaptainPlayerRecord : PlayerRecord
         {
-            public override uint TotalScore => (5 * (WinRound + KillCaptains)) + (2 * Kills) + KillAssists + Heal - Suicides;
+            public override uint TotalScore
+            {
+                get
+                {
+                    var earned = (5 * (WinRound + KillCaptains)) + KillAssistCaptains + (2 * Kills) + KillAssists + Heal;
+                    return Suicides >= earned ? 0 : earned - Suicides;
+                }
+            }
             public uint KillCaptains { get; set; }
             public uint KillAssistCaptains { get; set; }
             public uint WinRound { get; set; }
@@ -422,6 +463,8 @@ namespace Netsphere.Game.GameRules
                 KillCaptains = 0;
                 KillAssistCaptains = 0;
                 Heal = 0;
+                WinRound = 0;
+                Domination = 0;
             }
 
             /*public override uint GetExpGain(out uint bonusExp)
