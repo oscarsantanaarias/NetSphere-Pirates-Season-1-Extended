@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -382,13 +382,13 @@ namespace Netsphere.Commands
                 }
 
                 var rule = room.GameRuleManager.GameRule;
-                if (!rule.StateMachine.IsInState(Game.GameRules.GameRuleState.Playing))
+                if (!rule.StateMachine.IsInState(GameRuleState.Playing))
                 {
                     Say(plr, $"Room {roomId} is not playing");
                     return true;
                 }
 
-                rule.StateMachine.Fire(Game.GameRules.GameRuleStateTrigger.StartResult);
+                rule.StateMachine.Fire(GameRuleStateTrigger.StartResult);
                 Say(plr, $"Room {roomId} sent to the result screen");
                 return true;
             }
