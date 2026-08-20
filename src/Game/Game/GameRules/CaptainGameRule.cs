@@ -336,7 +336,13 @@ namespace Netsphere.Game.GameRules
                     .ToArray();
 
                 foreach (var plr in _alpha.Concat(_beta))
+                {
                     plr.RoomInfo.State = PlayerState.Alive;
+
+                    var record = plr.RoomInfo.Stats as CaptainPlayerRecord;
+                    if (record != null)
+                        record.IsCaptain = true;
+                }
 
                 Room.Broadcast(new SCaptainLifeRoundSetUpAckMessage { Players = players });
                 Room.Broadcast(new SEventMessageAckMessage(GameEventMessage.ResetRound, 0, 0, 0, ""));
@@ -346,7 +352,14 @@ namespace Netsphere.Game.GameRules
             // and no room any more, and reading them was a null reference on the way out
             public bool Dead(Player target)
             {
-                return _alpha.Remove(target) | _beta.Remove(target);
+                if (!(_alpha.Remove(target) | _beta.Remove(target)))
+                    return false;
+
+                var record = target.RoomInfo?.Stats as CaptainPlayerRecord;
+                if (record != null)
+                    record.IsCaptain = false;
+
+                return true;
             }
 
             public bool RoundOver()
@@ -438,23 +451,34 @@ namespace Netsphere.Game.GameRules
             public uint WinRound { get; set; }
             public uint Heal { get; set; }
             public uint Domination { get; set; }
+            public bool IsCaptain { get; set; }
 
             public CaptainPlayerRecord(Player plr)
                 : base(plr)
             {
             }
 
+            // CCaptainPlayerRecord in the client reads ten integers, one byte and one more
+            // integer after the common part. We were sending seven integers, so every row but
+            // the one the client fills in by itself came out of the next player's record: the
+            // captain kills a player was shown with were the account id of whoever came after
+            // him in the list
             public override void Serialize(BinaryWriter w, bool isResult)
             {
                 base.Serialize(w, isResult);
 
-                w.Write(KillCaptains);
-                w.Write(KillAssistCaptains);
                 w.Write(Kills);
                 w.Write(KillAssists);
                 w.Write(Heal);
-                w.Write(WinRound);
                 w.Write(Domination);
+                w.Write(0);
+                w.Write(0);
+                w.Write(KillAssistCaptains);
+                w.Write(KillCaptains);
+                w.Write(WinRound);
+                w.Write(Deaths);
+                w.Write(IsCaptain);
+                w.Write(0);
             }
 
             public override void Reset()
@@ -465,6 +489,7 @@ namespace Netsphere.Game.GameRules
                 Heal = 0;
                 WinRound = 0;
                 Domination = 0;
+                IsCaptain = false;
             }
 
             /*public override uint GetExpGain(out uint bonusExp)
