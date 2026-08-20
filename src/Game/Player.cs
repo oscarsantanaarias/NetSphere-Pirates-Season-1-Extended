@@ -306,8 +306,23 @@ namespace Netsphere
         {
             // the client labels every console answer with the result byte: 0 is the only one
             // that reads "Success", 3 and 4 are other messages and anything else comes out as
-            // "Unknown Error Code", which is what the console used to say before every reply
-            Session.SendAsync(new SAdminActionAckMessage { Result = 0, Message = message });
+            // "Unknown Error Code", which is what the console used to say before every reply.
+            // One answer is one line in the window, so anything with newlines in it has to go
+            // as several answers or it comes out as one line running off the screen
+            var color = message.StartsWith("{CB-") ? message.Substring(0, message.IndexOf('}') + 1) : "";
+
+            foreach (var line in message.Split('\n'))
+            {
+                var text = line.TrimEnd();
+                if (string.IsNullOrWhiteSpace(text))
+                    continue;
+
+                Session.SendAsync(new SAdminActionAckMessage
+                {
+                    Result = 0,
+                    Message = text.StartsWith(color) ? text : color + text
+                });
+            }
         }
 
         /// <summary>
