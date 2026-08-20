@@ -41,6 +41,7 @@ namespace ProudNet.Handlers
         public void NotifyUdpToTcpFallbackByClient(ProudServer server, ProudSession session)
         {
             session.UdpEnabled = false;
+            server.SessionsByUdpId.Remove(session.UdpSessionId);
         }
 
         [MessageHandler(typeof(P2PGroup_MemberJoin_AckMessage))] //client->response->joined p2p group (unreliable, cuz only for p2p)
