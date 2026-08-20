@@ -234,8 +234,6 @@ namespace Netsphere.Game.GameRules
                 // give all players winRound score
                 foreach (var plr in teamwin.PlayersPlaying)
                     GetRecord(plr).WinRound++;
-
-                Room.BroadcastBriefing();
             }
 
             var teamMgr = Room.TeamManager;
@@ -405,20 +403,9 @@ namespace Netsphere.Game.GameRules
 
         internal class CaptainBriefing : Briefing
         {
-            //int Unk1;
-            int Unk2;
-            int Unk3;
-            int Unk4;
-            int Unk5;
-            int Unk6;
             public CaptainBriefing(GameRuleBase RuleBase)
                 : base(RuleBase)
             {
-                Unk2 = 2;
-                Unk3 = 3;
-                Unk4 = 4;
-                Unk5 = 5;
-                Unk6 = 6;
             }
 
             protected override void WriteData(BinaryWriter w, bool isResult)
@@ -427,12 +414,12 @@ namespace Netsphere.Game.GameRules
 
                 var gameRule = (CaptainGameRule)GameRule;
 
-                w.Write((int)gameRule._currentRound);       // Current round number
-                w.Write(Unk2);
-                w.Write(Unk3);
-                w.Write(Unk4);
-                w.Write(Unk5);
-                w.Write(Unk6);
+                w.Write((int)gameRule._currentRound);
+                w.Write(0);
+                w.Write(0);
+                w.Write(0);
+                w.Write(0);
+                w.Write(0);
             }
         }
 
@@ -442,7 +429,7 @@ namespace Netsphere.Game.GameRules
             {
                 get
                 {
-                    var earned = (5 * (WinRound + KillCaptains)) + KillAssistCaptains + (2 * Kills) + KillAssists + Heal;
+                    var earned = (5 * KillCaptains) + KillAssistCaptains + (2 * Kills) + KillAssists + Heal;
                     return Suicides >= earned ? 0 : earned - Suicides;
                 }
             }
@@ -470,7 +457,7 @@ namespace Netsphere.Game.GameRules
                 w.Write(Kills);
                 w.Write(KillAssists);
                 w.Write(Heal);
-                w.Write(Domination);
+                w.Write(0);
                 w.Write(0);
                 w.Write(0);
                 w.Write(KillAssistCaptains);
