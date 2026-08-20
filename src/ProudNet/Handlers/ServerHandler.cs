@@ -39,13 +39,10 @@ namespace ProudNet.Handlers
                 stateB.HolepunchSuccess = false;
         }
 
-        // he gave up on udp altogether and wants the tcp relay. Without this the server kept
-        // firing udp at somebody who had stopped listening to it
         [MessageHandler(typeof(NotifyUdpToTcpFallbackByClientMessage))]
         public void NotifyUdpToTcpFallbackByClient(ProudServer server, ProudSession session)
         {
             session.UdpEnabled = false;
-            server.SessionsByUdpId.Remove(session.UdpSessionId);
         }
 
         [MessageHandler(typeof(P2PGroup_MemberJoin_AckMessage))] //client->response->joined p2p group (unreliable, cuz only for p2p)
