@@ -136,14 +136,18 @@ namespace Netsphere.Game.GameRules
             if (!_intruders.Contains(plr))
                 _intruders.Add(plr);
 
-            plr.Session?.SendAsync(new SRefreshGameRuleInfoAckMessage(GameState.Playing, GameTimeState.FirstHalf,
-                (int)_subRoundTime.TotalMilliseconds));
+            // Neutral and the time the match has been running, the same two the chaser sends its
+            // intruders. With FirstHalf the client built him a half time clock of its own and he
+            // always walked in with three minutes on it
+            var timeState = StateMachine.IsInState(GameRuleState.Neutral)
+                ? GameTimeState.Neutral
+                : GameTimeState.FirstHalf;
 
-            plr.Session?.SendAsync(new SCurrentRoundInformationAckMessage
-            {
-                Unk1 = (int)_currentRound + 1,
-                Unk2 = (int)_subRoundTime.TotalSeconds
-            });
+            // and nothing after it: the round information used to go out right behind this one
+            // and it put his clock back to the full time of the match. He gets that one with
+            // everybody else when the next round starts
+            plr.Session?.SendAsync(new SRefreshGameRuleInfoAckMessage(GameState.Playing, timeState,
+                (int)RoundTime.TotalMilliseconds));
         }
 
         public override void PlayerLeft(object room, RoomPlayerEventArgs e)
