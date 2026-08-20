@@ -123,6 +123,22 @@ namespace Netsphere.Game.GameRules
             base.Cleanup();
         }
 
+        // the one who walks into a match already going does not know which round it is or how
+        // long it has been running, the later seasons send him exactly this and only to him
+        public override void PlayerJoined(object room, RoomPlayerEventArgs e)
+        {
+            base.PlayerJoined(room, e);
+
+            if (!StateMachine.IsInState(GameRuleState.Playing))
+                return;
+
+            e.Player.Session?.SendAsync(new SCurrentRoundInformationAckMessage
+            {
+                Unk1 = (int)_currentRound + 1,
+                Unk2 = (int)_subRoundTime.TotalSeconds
+            });
+        }
+
         public override void PlayerLeft(object room, RoomPlayerEventArgs e)
         {
             base.PlayerLeft(room, e);
@@ -206,19 +222,10 @@ namespace Netsphere.Game.GameRules
             return teams.All(team => team.Players.Any(plr => plr.RoomInfo.IsReady || Room.Master == plr));
         }
 
-        // 21071 carries the round number and the seconds it has been running, the same two
-        // fields the later seasons send. It was going out on every death with the number of
-        // players still alive in it, which is not what the client reads
         private void StartRound()
         {
             _captainHelper.Reset();
             _subRoundTime = TimeSpan.Zero;
-
-            Room.Broadcast(new SCurrentRoundInformationAckMessage
-            {
-                Unk1 = (int)_currentRound + 1,
-                Unk2 = 0
-            });
         }
 
         private void SubRoundEnd()
@@ -342,6 +349,9 @@ namespace Netsphere.Game.GameRules
                         record.IsCaptain = true;
                 }
 
+                // this is what tells the client who is a captain and with how much life. The two
+                // numbers next to the clock are the captains each side has left, counted off this
+                // list, not the score
                 Room.Broadcast(new SCaptainLifeRoundSetUpAckMessage { Players = players });
                 Room.Broadcast(new SEventMessageAckMessage(GameEventMessage.ResetRound, 0, 0, 0, ""));
             }
