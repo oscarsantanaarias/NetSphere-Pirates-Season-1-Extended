@@ -12,10 +12,11 @@ namespace Netsphere.Game.GameRules
     internal class CaptainGameRule : GameRuleBase
     {
         private static readonly TimeSpan s_captainNextroundTime = TimeSpan.FromSeconds(12);
-        private static readonly TimeSpan s_captainRoundTime = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan s_captainRoundTime = TimeSpan.FromMinutes(3);
         private readonly CaptainHelper _captainHelper;
         private readonly IList<Player> _intruders = new List<Player>();
         private uint _currentRound;
+        private int _roundLimit;
         private TimeSpan _nextRoundTime = TimeSpan.Zero;
         private TimeSpan _subRoundTime = TimeSpan.Zero;
         private bool _waitingNextRound;
@@ -29,6 +30,7 @@ namespace Netsphere.Game.GameRules
             Briefing = new CaptainBriefing(this);
             _captainHelper = new CaptainHelper(room);
 
+            // no half time in this mode, one stretch with the rounds inside
             StateMachine.Configure(GameRuleState.Waiting)
                 .PermitIf(GameRuleStateTrigger.StartGame, GameRuleState.Neutral, CanStartGame);
 
@@ -54,6 +56,12 @@ namespace Netsphere.Game.GameRules
             teamMgr.Add(Team.Alpha, (uint)(Room.Options.MatchKey.PlayerLimit / 2), (uint)(Room.Options.MatchKey.SpectatorLimit / 2));
             teamMgr.Add(Team.Beta, (uint)(Room.Options.MatchKey.PlayerLimit / 2), (uint)(Room.Options.MatchKey.SpectatorLimit / 2));
             _currentRound = 0;
+
+            // the clock the client runs comes from the time of the room, so the room is told the
+            // round lasts what a round lasts. The number that was in there is the round limit,
+            // the "5 R" of the room window, kept before it is overwritten
+            _roundLimit = Room.Options.TimeLimit.Minutes;
+            Room.Options.TimeLimit = s_captainRoundTime;
             _nextRoundTime = TimeSpan.Zero;
             _subRoundTime = TimeSpan.Zero;
             _waitingNextRound = false;
@@ -85,9 +93,12 @@ namespace Netsphere.Game.GameRules
                     if (teamMgr.Values.Any(team => team.Score >= Room.Options.ScoreLimit))
                         StateMachine.Fire(GameRuleStateTrigger.StartResult);
 
-                    // Did we reach round limit?
-                    if (_currentRound >= Room.Options.TimeLimit.Minutes)
+                    // the time limit of the room is the number of rounds in this mode, five
+                    // rounds on the "5 R" of the room window
+                    if (_currentRound >= _roundLimit)
                         StateMachine.Fire(GameRuleStateTrigger.StartResult);
+
+
 
                     _captainHelper.Update(delta);
 
@@ -108,6 +119,8 @@ namespace Netsphere.Game.GameRules
                             return;
                         }
 
+                        // three minutes a round, the same the later seasons run, and the time
+                        // limit of the room is the number of rounds, not minutes
                         _subRoundTime += delta;
                         if (_subRoundTime >= s_captainRoundTime)
                             SubRoundEnd();
@@ -233,6 +246,16 @@ namespace Netsphere.Game.GameRules
         {
             _captainHelper.Reset();
             _subRoundTime = TimeSpan.Zero;
+
+            // this is the one that puts the clock back to the top. The refresh does nothing to it,
+            // whatever number goes in, but this one restarts it, which is why the one who walked
+            // in mid match ended up with the whole time on his screen when he got it
+            Room.Broadcast(new SCurrentRoundInformationAckMessage
+            {
+                Unk1 = (int)_currentRound + 1,
+                Unk2 = 0
+            });
+
         }
 
         private void SubRoundEnd()
@@ -270,7 +293,7 @@ namespace Netsphere.Game.GameRules
             _intruders.Clear();
 
             // Did we reach ScoreLimit or Round Limit?
-            if (_currentRound >= Room.Options.TimeLimit.Minutes
+            if (_currentRound >= _roundLimit
                 || teamMgr.Values.Any(team => team.Score >= Room.Options.ScoreLimit))
             {
                 StateMachine.Fire(GameRuleStateTrigger.StartResult);
