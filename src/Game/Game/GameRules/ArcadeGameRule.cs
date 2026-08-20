@@ -54,6 +54,7 @@ namespace Netsphere.Game.GameRules
 
             StateMachine.Configure(GameRuleState.Result)
                 .SubstateOf(GameRuleState.Playing)
+                .OnEntry(SendResult)
                 .Permit(GameRuleStateTrigger.EndGame, GameRuleState.Waiting);
         }
 
@@ -157,10 +158,20 @@ namespace Netsphere.Game.GameRules
                 player.RoomInfo.ArcadeRespawnCount = RespawnsPerStage;
         }
 
+        // the stage he is really on travels in this one too, right after the round begins, and
+        // it is the only one that arrives when he does not touch the selection
+        public void StageInfo(byte stage, byte subStage)
+        {
+            if (stage >= 1 && stage <= ArcadeStats.Stages)
+                Stage = stage;
+
+            if (subStage >= 1 && subStage <= 3)
+                SubStage = subStage;
+        }
+
         public void StageSelect(byte stage, byte subStage)
         {
-            Stage = stage;
-            SubStage = subStage;
+            StageInfo(stage, subStage);
             ResetStage();
 
             Room.Broadcast(new SArcadeStageSelectAckMessage { Unk1 = stage, Unk2 = subStage });
@@ -217,6 +228,9 @@ namespace Netsphere.Game.GameRules
             Room.Broadcast(new SArcadeScoreSyncAckMessage { Scores = _scoreByAccount.Values.ToArray() });
 
             var difficulty = Difficulty;
+            Console.WriteLine($"[arcade] stage clear: stage={Stage} difficulty={difficulty} " +
+                              $"players={Room.TeamManager.PlayersPlaying.Count()}");
+
             foreach (var plr in Room.TeamManager.PlayersPlaying.ToArray())
             {
                 plr.stats.Arcade.MarkStageCleared(difficulty, Stage);
@@ -319,6 +333,42 @@ namespace Netsphere.Game.GameRules
             });
         }
 
+        // the result screen of the arcade does not read the player record, it reads this block,
+        // one row per player, and the row of whoever is looking has to come first. That is why
+        // every column of it came out at zero
+        private void SendResult()
+        {
+            var players = Room.TeamManager.Players.ToArray();
+
+            foreach (var receiver in players)
+            {
+                using (var stream = new MemoryStream())
+                using (var w = new BinaryWriter(stream))
+                {
+                    foreach (var plr in players.OrderByDescending(p => p == receiver))
+                    {
+                        var isReceiver = plr == receiver;
+                        var record = plr.RoomInfo.Stats as ArcadePlayerRecord;
+
+                        w.Write(isReceiver ? 1ul : plr.Account.Id);
+                        w.Write(record != null ? (int)record.KilledMonster : 0);
+                        w.Write(Math.Min(100, Math.Max(0, plr.RoomInfo.ArcadeRespawnCount * 10)));
+                        w.Write((int)plr.RoomInfo.PlayTime.TotalSeconds);
+                        w.Write(isReceiver ? 1 : 0);
+                        w.Write(0);
+                        w.Write(0);
+                    }
+
+                    receiver.Session?.SendAsync(new SArcadeStageBriefingAckMessage
+                    {
+                        Unk1 = Stage,
+                        Unk2 = SubStage,
+                        Data = stream.ToArray()
+                    });
+                }
+            }
+        }
+
         private void ResetStage()
         {
             _killedByAccount.Clear();
@@ -348,13 +398,16 @@ namespace Netsphere.Game.GameRules
         {
             base.Serialize(w, isResult);
 
+            // the result screen reads three of these straight out of the record: the first one
+            // is the HP points, the fourth the battle points and the seventh the time points.
+            // The total and the accumulated score it works out by itself
             w.Write(Math.Min(100, Math.Max(0, Player.RoomInfo.ArcadeRespawnCount * 10)));
+            w.Write(0);
+            w.Write(0);
             w.Write((int)KilledMonster);
+            w.Write(0);
+            w.Write(0);
             w.Write((int)Player.RoomInfo.PlayTime.TotalSeconds);
-            w.Write(0);
-            w.Write(0);
-            w.Write(0);
-            w.Write(0);
             w.Write(0);
             w.Write(0);
         }

@@ -864,8 +864,7 @@ namespace Netsphere.Network.Services
         [MessageHandler(typeof(CArcadeStageInfoReqMessage))]
         public void CArcadeStageInfoReq(GameSession session, CArcadeStageInfoReqMessage message)
         {
-            //Logger.ForAccount(session.Player.Account)
-               //.Debug($"Arcade Stage Info {message.Unk1} {message.Unk2}");
+            GetArcade(session)?.StageInfo(message.Unk1, (byte)message.Unk2);
 
             session.SendAsync(new SArcadeStageInfoAckMessage { Unk1 = message.Unk1, Unk2 = message.Unk2 });
         }

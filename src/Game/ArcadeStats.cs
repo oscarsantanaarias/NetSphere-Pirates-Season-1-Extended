@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -46,7 +46,12 @@ namespace Netsphere
 
             Load();
             if (!_cleared.Add(Key(difficulty, stage)))
+            {
+                Console.WriteLine($"[arcade] {_player.Account.Nickname} already had stage {stage} of difficulty {difficulty}");
                 return;
+            }
+
+            Console.WriteLine($"[arcade] {_player.Account.Nickname} clears stage {stage} of difficulty {difficulty}");
 
             using (var db = GameDatabase.Open())
             {
