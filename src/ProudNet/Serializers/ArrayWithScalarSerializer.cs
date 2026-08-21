@@ -26,12 +26,6 @@ namespace ProudNet.Serializers
                 emiter.Call(typeof(ProudNetBinaryReaderExtensions).GetMethod(nameof(ProudNetBinaryReaderExtensions.ReadScalar)));
                 emiter.StoreLocal(length);
 
-                // the length the packet claims, checked before anything is allocated
-                emiter.LoadLocal(length);
-                emiter.LoadArgument(1);
-                emiter.Call(typeof(ProudNet.Serialization.Serializers.SizeGuard).GetMethod(nameof(ProudNet.Serialization.Serializers.SizeGuard.CheckLength)));
-                emiter.StoreLocal(length);
-
                 // if(length < 1) {
                 //  value = Array.Empty<>()
                 //  return

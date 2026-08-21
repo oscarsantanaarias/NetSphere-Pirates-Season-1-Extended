@@ -30,23 +30,14 @@ namespace ProudNet
         public static byte[] ReadStruct(this BinaryReader @this)
         {
             var size = @this.ReadScalar();
-            if (size < 0 || size > MaxStructLength)
-                throw new InvalidDataException($"Struct of {size} bytes");
-
             return @this.ReadBytes(size);
         }
-
-        // the size came straight from the packet into ReadBytes, which allocates it
-        private const int MaxStringLength = 4096;
-        private const int MaxStructLength = 0x10000;
 
         public static string ReadProudString(this BinaryReader @this)
         {
             var stringType = @this.ReadByte();
             var size = @this.ReadScalar();
             if (size <= 0) return "";
-            if (size > MaxStringLength)
-                throw new InvalidDataException($"String of {size} characters");
 
             switch (stringType)
             {
@@ -137,8 +128,6 @@ namespace ProudNet
 
     public static class ProudNetIByteBufferExtensions
     {
-        private const int MaxStringLength = 4096;
-
         public static int ReadScalar(this IByteBuffer @this)
         {
             var prefix = @this.ReadByte();
@@ -169,8 +158,6 @@ namespace ProudNet
             var stringType = @this.ReadByte();
             var size = @this.ReadScalar();
             if (size <= 0) return "";
-            if (size > MaxStringLength)
-                throw new InvalidDataException($"String of {size} characters");
 
             string str;
             switch (stringType)

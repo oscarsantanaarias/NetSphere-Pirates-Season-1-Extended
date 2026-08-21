@@ -78,16 +78,9 @@ namespace Netsphere.Network.Services
             session.Player.Channel?.Leave(session.Player);
         }
 
-        // notes already had a limit, the chat had none, and whatever came in was handed to
-        // everyone in the channel
-        private const int MaxChatLength = 128;
-
         [MessageHandler(typeof(CChatMessageReqMessage))]
         public async Task CChatMessageReq(ChatSession session, CChatMessageReqMessage message)
         {
-            if (string.IsNullOrEmpty(message.Message) || message.Message.Length > MaxChatLength)
-                return;
-
             switch (message.ChatType)
             {
                 case ChatType.Channel:
@@ -112,9 +105,6 @@ namespace Netsphere.Network.Services
         [MessageHandler(typeof(CWhisperChatMessageReqMessage))]
         public async Task CWhisperChatMessageReq(ChatSession session, CWhisperChatMessageReqMessage message)
         {
-            if (string.IsNullOrEmpty(message.Message) || message.Message.Length > MaxChatLength)
-                return;
-
             var toPlr = GameServer.Instance.PlayerManager.Get(message.ToNickname);
 
             // ToDo Is there an answer for this case?
