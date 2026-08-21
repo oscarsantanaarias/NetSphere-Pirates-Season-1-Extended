@@ -7,9 +7,9 @@
     <Reference Include="BlubLib"><HintPath>..\..\libs\BlubLib7\BlubLib.dll</HintPath></Reference>
     <Reference Include="BlubLib.DotNetty"><HintPath>..\..\libs\BlubLib7\BlubLib.DotNetty.dll</HintPath></Reference>
     <Reference Include="BlubLib.Serialization"><HintPath>..\..\libs\BlubLib7\BlubLib.Serialization.dll</HintPath></Reference>
-    <Reference Include="Sigil"><HintPath>..\..\libs\Sigil.dll</HintPath></Reference>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Sigil" Version="5.0.0" />
     <PackageReference Include="DotNetty.Buffers" Version="0.6.0" />
     <PackageReference Include="DotNetty.Codecs" Version="0.6.0" />
     <PackageReference Include="DotNetty.Common" Version="0.6.0" />
