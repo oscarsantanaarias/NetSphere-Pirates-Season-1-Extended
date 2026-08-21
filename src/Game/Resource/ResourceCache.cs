@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -35,6 +35,9 @@ namespace Netsphere.Resource
             Logger.Info("Caching: DefaultItems");
             GetDefaultItems();
 
+            Logger.Info("Caching: GmSupportItems");
+            GetGmSupportItems();
+
             Logger.Info("Caching: Shop");
             GetShop();
 
@@ -46,6 +49,9 @@ namespace Netsphere.Resource
 
             Logger.Info("Caching: GameTempos");
             GetGameTempos();
+
+            Logger.Info("Caching: Tasks");
+            GetTasks();
         }
 
         public IReadOnlyList<ChannelInfo> GetChannels()
@@ -94,6 +100,19 @@ namespace Netsphere.Resource
                 Logger.Debug("Caching...");
                 value = _loader.LoadDefaultItems().ToList();
                 _cache.Set(ResourceCacheType.DefaultItems, value);
+            }
+
+            return value;
+        }
+
+        public IReadOnlyList<ItemNumber> GetGmSupportItems()
+        {
+            var value = _cache.Get<IReadOnlyList<ItemNumber>>(ResourceCacheType.GmSupportItems);
+            if (value == null)
+            {
+                Logger.Debug("Caching...");
+                value = _loader.LoadGmSupportItems().ToList();
+                _cache.Set(ResourceCacheType.GmSupportItems, value);
             }
 
             return value;
@@ -170,6 +189,34 @@ namespace Netsphere.Resource
                 return;
             }
             _cache.Remove(type.ToString());
+        }
+
+        public IReadOnlyDictionary<uint, Netsphere.Resource.xml.ItemRewardItemDto> GetItemRewards()
+        {
+            var value = _cache.Get<IReadOnlyDictionary<uint, Netsphere.Resource.xml.ItemRewardItemDto>>(ResourceCacheType.ItemRewards);
+            if (value == null)
+            {
+                Logger.Debug("Caching...");
+
+                var dict = new Dictionary<uint, Netsphere.Resource.xml.ItemRewardItemDto>();
+                foreach (var entry in _loader.LoadItemRewards())
+                    dict[entry.Number] = entry;
+                value = dict;
+                _cache.Set(ResourceCacheType.ItemRewards, value);
+            }
+            return value;
+        }
+
+        public IReadOnlyList<TaskInfo> GetTasks()
+        {
+            var value = _cache.Get<IReadOnlyList<TaskInfo>>(ResourceCacheType.Tasks);
+            if (value == null)
+            {
+                Logger.Debug("Caching...");
+                value = _loader.LoadTasks().ToList();
+                _cache.Set(ResourceCacheType.Tasks, value);
+            }
+            return value;
         }
     }
 

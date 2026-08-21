@@ -4,7 +4,9 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using BlubLib.DotNetty.Handlers.MessageHandling;
+using ExpressMapper.Extensions;
 using Netsphere.Game.GameRules;
+using Netsphere.Network.Data.Game;
 using Netsphere.Network.Data.GameRule;
 using Netsphere.Network.Message.Game;
 using Netsphere.Network.Message.GameRule;
@@ -25,10 +27,29 @@ namespace Netsphere.Network.Services
         {
             var plr = session.Player;
 
-            plr.Room.Broadcast(new SEnterPlayerAckMessage(plr.Account.Id, plr.Account.Nickname, 0, plr.RoomInfo.Mode, 0));
+            plr.Room.Broadcast(new SEnterPlayerAckMessage(plr.Account.Id, plr.Account.Nickname,
+                (byte)plr.RoomInfo.Team.Team, plr.RoomInfo.Mode, (int)plr.TotalExperience));
             session.SendAsync(new SChangeMasterAckMessage(plr.Room.Master.Account.Id));
             session.SendAsync(new SChangeRefeReeAckMessage(plr.Room.Host.Account.Id));
-            plr.Room.BroadcastBriefing();
+            plr.Room.BroadcastBriefing(false, plr);
+
+            foreach (var other in plr.Room.Players.Values)
+            {
+                if (other == plr)
+                    continue;
+
+                plr.ChatSession?.SendAsync(
+                    new Netsphere.Network.Message.Chat.SUserDataAckMessage(
+                        other.Map<Player, Netsphere.Network.Data.Chat.UserDataDto>()));
+
+                session.SendAsync(new SAvatarChangeAckMessage(BuildAvatar(other, null), Array.Empty<ChangeAvatarUnk2Dto>()));
+
+                other.ChatSession?.SendAsync(
+                    new Netsphere.Network.Message.Chat.SUserDataAckMessage(
+                        plr.Map<Player, Netsphere.Network.Data.Chat.UserDataDto>()));
+
+                other.Session?.SendAsync(new SAvatarChangeAckMessage(BuildAvatar(plr, null), Array.Empty<ChangeAvatarUnk2Dto>()));
+            }
         }
 
         [MessageHandler(typeof(CMakeRoomReqMessage))]
@@ -162,7 +183,9 @@ namespace Netsphere.Network.Services
         public void CJoinTunnelInfoReq(GameSession session)
         {
             var plr = session.Player;
-            plr.Room.Leave(plr);
+            Console.WriteLine($"[tunnel] {plr?.Account?.Nickname} sent CJoinTunnelInfoReq, room={plr?.Room?.Id}, state={plr?.RoomInfo?.State}");
+
+            plr?.Room?.Leave(plr);
         }
 
         [MessageHandler(typeof(CChangeTeamReqMessage))]
@@ -200,6 +223,90 @@ namespace Netsphere.Network.Services
                     .Message($"Failed to change mode to {message.Mode}")
                     .Write();
             }
+        }
+
+        private static readonly Random TeamRng = new Random();
+
+        // the two buttons of the mix window nobody was answering: shuffle deals everyone out
+        // again at random, assign only evens the sides out. Both are the master's and both are
+        // lobby only, same as the manual swap next to them
+        [MessageHandler(typeof(CAutoMixingTeamReqMessage))]
+        public void CAutoMixingTeamReq(GameSession session)
+        {
+            var plr = session.Player;
+            var room = plr.Room;
+
+            if (room.Master != plr ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Waiting))
+                return;
+
+            var alpha = room.TeamManager[Team.Alpha];
+            var beta = room.TeamManager[Team.Beta];
+            if (alpha == null || beta == null)
+                return;
+
+            var players = room.TeamManager.Players
+                .Where(p => p.RoomInfo.Mode == PlayerGameMode.Normal)
+                .OrderBy(p => TeamRng.Next())
+                .ToArray();
+
+            for (var i = 0; i < players.Length; i++)
+            {
+                var target = (i % 2) == 0 ? alpha : beta;
+                if (players[i].RoomInfo.Team == target)
+                    continue;
+
+                try
+                {
+                    target.Join(players[i]);
+                }
+                catch (TeamLimitReachedException)
+                {
+                    // the other side is full, he stays where he is
+                }
+            }
+
+            room.BroadcastBriefing();
+        }
+
+        [MessageHandler(typeof(CAutoAssingTeamReqMessage))]
+        public void CAutoAssingTeamReq(GameSession session, CAutoAssingTeamReqMessage message)
+        {
+            var plr = session.Player;
+            var room = plr.Room;
+
+            if (room.Master != plr ||
+                !room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Waiting))
+                return;
+
+            var alpha = room.TeamManager[Team.Alpha];
+            var beta = room.TeamManager[Team.Beta];
+            if (alpha == null || beta == null)
+                return;
+
+            // one at a time from the fuller side, until they are level or the move is refused
+            while (true)
+            {
+                var from = alpha.Players.Count() > beta.Players.Count() ? alpha : beta;
+                var to = from == alpha ? beta : alpha;
+                if (from.Players.Count() - to.Players.Count() < 2)
+                    break;
+
+                var moving = from.Players.LastOrDefault(p => p.RoomInfo.Mode == PlayerGameMode.Normal);
+                if (moving == null)
+                    break;
+
+                try
+                {
+                    to.Join(moving);
+                }
+                catch (TeamLimitReachedException)
+                {
+                    break;
+                }
+            }
+
+            room.BroadcastBriefing();
         }
 
         [MessageHandler(typeof(CMixChangeTeamReqMessage))]
@@ -270,23 +377,36 @@ namespace Netsphere.Network.Services
         public void CEventMessageReq(GameSession session, CEventMessageReqMessage message)
         {
             var plr = session.Player;
-            plr.Room.Broadcast(new SEventMessageAckMessage(message.Event, session.Player.Account.Id, message.Unk1, message.Value, ""));
-            //if (message.Event == GameEventMessage.BallReset && plr == plr.Room.Host)
-            //{
-            //    plr.Room.Broadcast(new SEventMessageAckMessage(GameEventMessage.BallReset, 0, 0, 0, ""));
-            //    return;
-            //}
 
-            //if (message.Event != GameEventMessage.StartGame)
-            //    return;
+            var intruding = plr.Room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing)
+                            && plr.RoomInfo.State == PlayerState.Lobby;
 
-            if (plr.Room.GameRuleManager.GameRule.StateMachine.IsInState(GameRuleState.Playing) && plr.RoomInfo.State == PlayerState.Lobby)
+            if (intruding)
             {
                 plr.RoomInfo.State = plr.RoomInfo.Mode == PlayerGameMode.Normal
                     ? PlayerState.Alive
                     : PlayerState.Spectating;
                 //Specific Implementation since in chaser mode it gets called when intrusion from inside the room
                 plr.Room.BroadcastBriefing(plr);
+
+                // and in battle royal, who the leader is: he walks in with that box empty
+                var br = plr.Room.GameRuleManager.GameRule as BattleRoyalGameRule;
+                if (br?.First != null)
+                    session.SendAsync(new SGameRuleChangeTheFirstAckMessage(br.First.Account.Id));
+            }
+
+            plr.Room.Broadcast(new SEventMessageAckMessage(message.Event, session.Player.Account.Id, message.Unk1, message.Value, ""));
+
+            if (intruding && plr.RoomInfo.State == PlayerState.Dead)
+            {
+                var room = plr.Room;
+                Task.Delay(TimeSpan.FromSeconds(5)).ContinueWith(_ =>
+                {
+                    if (plr.Room != room || plr.RoomInfo.State != PlayerState.Dead)
+                        return;
+
+                    room.Broadcast(new SPlayerGameModeChangeAckMessage(plr.Account.Id, PlayerGameMode.Observer));
+                });
             }
         }
 
@@ -324,24 +444,8 @@ namespace Netsphere.Network.Services
             plr.Room.Broadcast(new SItemsChangeAckMessage(unk1, message.Unk2));
         }
 
-        [MessageHandler(typeof(CAvatarChangeReqMessage))]
-        public void CAvatarChangeReq(GameSession session, CAvatarChangeReqMessage message)
+        private static ChangeAvatarUnk1Dto BuildAvatar(Player plr, ChangeAvatarUnk1Dto from)
         {
-            var plr = session.Player;
-
-            Logger.Debug()
-                .Account(session)
-                .Message($"Avatar sync - {JsonConvert.SerializeObject(message.Unk1, Formatting.Indented)}")
-                .Write();
-
-            if (message.Unk2.Length > 0)
-            {
-                Logger.Warn()
-                    .Account(session)
-                    .Message($"Unk2: {JsonConvert.SerializeObject(message.Unk2, Formatting.Indented)}")
-                    .Write();
-            }
-
             var @char = plr.CharacterManager.CurrentCharacter;
             var unk1 = new ChangeAvatarUnk1Dto
             {
@@ -349,13 +453,13 @@ namespace Netsphere.Network.Services
                 Skills = @char.Skills.GetItems().Select(item => item?.ItemNumber ?? 0).ToArray(),
                 Weapons = @char.Weapons.GetItems().Select(item => item?.ItemNumber ?? 0).ToArray(),
                 Costumes = new ItemNumber[(int)CostumeSlot.Max],
-                Unk5 = message.Unk1.Unk5,
-                Unk6 = message.Unk1.Unk6,
-                Unk7 = message.Unk1.Unk7,
-                Unk8 = message.Unk1.Unk8,
-                Gender = plr.CharacterManager.CurrentCharacter.Gender,
+                Unk5 = from?.Unk5 ?? Array.Empty<int>(),
+                Unk6 = from?.Unk6 ?? Array.Empty<int>(),
+                Unk7 = from?.Unk7 ?? Array.Empty<int>(),
+                Unk8 = from?.Unk8 ?? 0,
+                Gender = @char.Gender,
                 HP = plr.GetMaxHP(),
-                Unk11 = message.Unk1.Unk11
+                Unk11 = from?.Unk11 ?? 0
             };
 
             // If no item equipped use the default item the character was created with
@@ -397,6 +501,28 @@ namespace Netsphere.Network.Services
                 unk1.Costumes[(int)slot] = item;
             }
 
+            return unk1;
+        }
+
+        [MessageHandler(typeof(CAvatarChangeReqMessage))]
+        public void CAvatarChangeReq(GameSession session, CAvatarChangeReqMessage message)
+        {
+            var plr = session.Player;
+
+            Logger.Debug()
+                .Account(session)
+                .Message($"Avatar sync - {JsonConvert.SerializeObject(message.Unk1, Formatting.Indented)}")
+                .Write();
+
+            if (message.Unk2.Length > 0)
+            {
+                Logger.Warn()
+                    .Account(session)
+                    .Message($"Unk2: {JsonConvert.SerializeObject(message.Unk2, Formatting.Indented)}")
+                    .Write();
+            }
+
+            var unk1 = BuildAvatar(plr, message.Unk1);
             plr.Room.Broadcast(new SAvatarChangeAckMessage(unk1, message.Unk2));
         }
 
@@ -441,7 +567,6 @@ namespace Netsphere.Network.Services
 
         #region Scores
 
-
         [MessageHandler(typeof(CSlaughterAttackPointReqMessage))]
         public void SlaughterAttackPointReq(GameSession session, CSlaughterAttackPointReqMessage message)
         {
@@ -476,9 +601,15 @@ namespace Netsphere.Network.Services
 
             //Only count kills on actual players, not sentry weapons (Unk: 1=Player, 2=Sentry, 3=Sentiforce)
             if (message.Score.Target.PeerId.Unk != 1)
+            {
+                // in arcade what he shoots at is a monster and it went straight into the bin
+                // here, so nobody ever had a battle point or a contribution of the stage
+                GetArcade(session)?.MonsterKilled(killer);
                 return;
+            }
 
             room.GameRuleManager.GameRule.OnScoreKill(killer, null, plr, message.Score.Weapon);
+            MissionService.OnWeaponKill(killer, message.Score.Weapon);
         }
 
         [MessageHandler(typeof(CScoreKillAssistReqMessage))]
@@ -662,6 +793,15 @@ namespace Netsphere.Network.Services
                 ((TouchdownGameRule)room.GameRuleManager.GameRule).OnScoreGoal(target);
         }
 
+        private static ArcadeGameRule GetArcade(GameSession session)
+        {
+            var room = session.Player?.Room;
+            if (room == null || room.Options.MatchKey.GameRule != GameRule.Arcade)
+                return null;
+
+            return room.GameRuleManager.GameRule as ArcadeGameRule;
+        }
+
         [MessageHandler(typeof(CMissionScoreReqMessage))]
         public void CMissionScoreReq(GameSession session, CMissionScoreReqMessage message)
         {
@@ -671,34 +811,48 @@ namespace Netsphere.Network.Services
 
         [MessageHandler(typeof(CArcadeAttackPointReqMessage))]
         public void CArcadeAttackPointReq(GameSession session, CArcadeAttackPointReqMessage message)
-        { }
+        {
+            GetArcade(session)?.AttackPoint(session.Player, message.Unk);
+        }
 
         [MessageHandler(typeof(CArcadeScoreSyncReqMessage))]
         public void CArcadeScoreSyncReq(GameSession session, CArcadeScoreSyncReqMessage message)
-        { }
+        {
+            var arcade = GetArcade(session);
+            arcade?.ScoreSync(message.Scores);
+        }
 
         [MessageHandler(typeof(CArcadeBeginRoundReqMessage))]
         public void CArcadeBeginRoundReq(GameSession session, CArcadeBeginRoundReqMessage message)
         {
-            //Logger.ForAccount(session.Player.Account)
-              // .Debug($"Arcade Begin Round {message.Unk1} {message.Unk2}");
+            var arcade = GetArcade(session);
+            if (arcade == null)
+            {
+                session.SendAsync(new SArcadeBeginRoundAckMessage { Unk1 = message.Unk1, Unk2 = message.Unk2 });
+                return;
+            }
 
-            session.SendAsync(new SArcadeBeginRoundAckMessage { Unk1 = message.Unk1, Unk2 = message.Unk2 });
+            arcade.StageBegin(session.Player);
         }
 
         [MessageHandler(typeof(CArcadeStageClearReqMessage))]
         public void CArcadeStageClearReq(GameSession session, CArcadeStageClearReqMessage message)
-        { }
+        {
+            var arcade = GetArcade(session);
+            arcade?.StageClear(message.Scores);
+        }
 
         [MessageHandler(typeof(CArcadeStageFailedReqMessage))]
         public void CArcadeStageFailedReq(GameSession session, CArcadeStageFailedReqMessage message)
-        { }
+        {
+            var arcade = GetArcade(session);
+            arcade?.StageFailed(session.Player);
+        }
 
         [MessageHandler(typeof(CArcadeStageInfoReqMessage))]
         public void CArcadeStageInfoReq(GameSession session, CArcadeStageInfoReqMessage message)
         {
-            //Logger.ForAccount(session.Player.Account)
-               //.Debug($"Arcade Stage Info {message.Unk1} {message.Unk2}");
+            GetArcade(session)?.StageInfo(message.Unk1, (byte)message.Unk2);
 
             session.SendAsync(new SArcadeStageInfoAckMessage { Unk1 = message.Unk1, Unk2 = message.Unk2 });
         }
@@ -715,10 +869,14 @@ namespace Netsphere.Network.Services
         [MessageHandler(typeof(CArcadeRespawnReqMessage))]
         public void CArcadeRespawnReq(GameSession session, CArcadeRespawnReqMessage message)
         {
-            //Logger.ForAccount(session.Player.Account)
-                //.Debug($"Arcade Respawn {message.Unk1} {message.Unk2}");
+            var arcade = GetArcade(session);
+            if (arcade == null)
+            {
+                session.SendAsync(new SArcadeRespawnAckMessage { Unk = 0 });
+                return;
+            }
 
-            session.SendAsync(new SArcadeRespawnAckMessage { Unk = 0 });
+            arcade.Respawn(session.Player);
         }
 
         [MessageHandler(typeof(CArcadeStageReadyReqMessage))]
@@ -739,11 +897,7 @@ namespace Netsphere.Network.Services
             if (room.Options.MatchKey.GameRule != GameRule.Arcade)
                 return;
 
-            var Arcade = ((ArcadeGameRule)room.GameRuleManager.GameRule);
-            Arcade.Stage = message.Unk1;
-            Arcade.SubStage = message.Unk2;
-
-            room.Broadcast(new SArcadeStageSelectAckMessage { Unk1 = message.Unk1, Unk2 = message.Unk2 });
+            ((ArcadeGameRule)room.GameRuleManager.GameRule).StageSelect(message.Unk1, message.Unk2);
         }
 
         [MessageHandler(typeof(CArcadeLoadingSucceesReqMessage))]

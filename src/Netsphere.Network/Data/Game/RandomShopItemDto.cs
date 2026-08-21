@@ -1,26 +1,28 @@
-﻿using BlubLib.Serialization;
+using BlubLib.Serialization;
 
 namespace Netsphere.Network.Data.Game
 {
     [BlubContract]
     public class RandomShopItemDto
     {
+        // 0 = costume, 1 = weapon. the client keys the result record by this, a wrong
+        // value leaves the page rolling forever
         [BlubMember(0)]
-        public uint Unk1 { get; set; }
+        public uint Tab { get; set; }
 
         [BlubMember(1)]
-        public uint Unk2 { get; set; }
+        public uint ItemNumber { get; set; }
 
         [BlubMember(2)]
-        public uint Unk3 { get; set; }
+        public uint Effect { get; set; }
 
         [BlubMember(3)]
-        public uint Unk4 { get; set; }
+        public uint Color { get; set; }
 
         [BlubMember(4)]
-        public uint Unk5 { get; set; }
+        public ItemPeriodType PeriodType { get; set; }
 
         [BlubMember(5)]
-        public ushort Unk6 { get; set; }
+        public ushort Period { get; set; }
     }
 }

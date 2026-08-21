@@ -31,6 +31,10 @@ namespace ProudNet.Codecs
                 throw new ProudException($"No {nameof(MessageFactory)} found for message {type.FullName}");
 
             var opCode = factory.GetOpCode(type);
+
+            if (PacketLog.Enabled)
+                PacketLog.Write(false, opCode, type.Name);
+
             var buffer = context.Allocator.Buffer(2);
             using (var w = new WriteOnlyByteBufferStream(buffer, false).ToBinaryWriter(false))
             {

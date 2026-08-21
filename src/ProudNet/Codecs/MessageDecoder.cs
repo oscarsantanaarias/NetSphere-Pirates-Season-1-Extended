@@ -49,7 +49,12 @@ namespace ProudNet.Codecs
                 {
                     var newmessage = factory.GetMessage(opCode, r);
                     if (newmessage != null)
+                    {
+                        if (PacketLog.Enabled)
+                            PacketLog.Write(true, opCode, newmessage.GetType().Name);
+
                         output.Add(newmessage);
+                    }
                 }
                 catch (Exception ex)
                 {

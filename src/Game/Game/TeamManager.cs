@@ -267,8 +267,7 @@ namespace Netsphere.Game.Systems
             plr.RoomInfo.Team = this;
             _players.TryAdd(plr.RoomInfo.Slot, plr);
 
-            if (isChange)
-                TeamManager.Broadcast(new SChangeTeamAckMessage(plr.Account.Id, Team, plr.RoomInfo.Mode));
+            TeamManager.Broadcast(new SChangeTeamAckMessage(plr.Account.Id, Team, plr.RoomInfo.Mode));
 
             OnPlayerJoined(plr);
         }

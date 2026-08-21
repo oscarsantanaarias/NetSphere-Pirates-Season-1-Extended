@@ -1,4 +1,4 @@
-namespace Netsphere.Resource
+﻿namespace Netsphere.Resource
 {
     internal enum ResourceCacheType
     {
@@ -6,9 +6,12 @@ namespace Netsphere.Resource
         Effects,
         Items,
         DefaultItems,
+        GmSupportItems,
         Shop,
         Exp,
         Maps,
-        GameTempo
+        GameTempo,
+        ItemRewards,
+        Tasks
     }
 }

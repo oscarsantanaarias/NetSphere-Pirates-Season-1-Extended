@@ -14,6 +14,7 @@ using Netsphere.Database.Game;
 using Netsphere.Network.Data.Chat;
 using Netsphere.Network.Data.Game;
 using Netsphere.Network.Message.Game;
+using Netsphere.Shop;
 using NLog;
 using NLog.Fluent;
 using ProudNet.Handlers;
@@ -405,11 +406,33 @@ namespace Netsphere.Network.Services
                 AP = plr.AP,
                 PEN = plr.PEN,
                 TutorialState = (uint)(Config.Instance.Game.EnableTutorial ? plr.TutorialState : 2),
-                Nickname = plr.Account.Nickname
+                Nickname = plr.Account.Nickname,
+
+                // the side panel reads its numbers from here, not from the user data ack the
+                // popup uses, so without these five it sat at zero with the pen and the exp right
+                DMStats = plr.stats.DeathMatch.GetStatsDto(),
+                TDStats = plr.stats.TouchDown.GetStatsDto(),
+                ChaserStats = plr.stats.Chaser.GetStatsDto(),
+                BRStats = plr.stats.BattleRoyal.GetStatsDto(),
+                CPTStats = plr.stats.Captain.GetStatsDto()
             }).ConfigureAwait(false);
 
             await session.SendAsync(new SServerResultInfoAckMessage(ServerResult.WelcomeToS4World2))
                 .ConfigureAwait(false);
+
+            // the shop version, pushed instead of waiting for the client to ask. it compares it
+            // against the four dates of its cached shop\*.s4 files and asks for the blobs when
+            // they differ, which is the only way it ever drops a stale shop. S10 does the same
+            // at the end of its login
+            var shopVersion = GameServer.Instance.ResourceCache.GetShop().Version;
+            await session.SendAsync(new SNewShopUpdateCheckAckMessage
+            {
+                Date01 = shopVersion,
+                Date02 = shopVersion,
+                Date03 = shopVersion,
+                Date04 = shopVersion,
+                Unk = 0
+            }).ConfigureAwait(false);
 
             if (plr.Inventory.Count == 0)
             {
@@ -463,8 +486,55 @@ namespace Netsphere.Network.Services
                 }
             }
 
+            if (plr.Account.SecurityLevel > SecurityLevel.User)
+            {
+                var shop = GameServer.Instance.ResourceCache.GetShop();
+
+                foreach (var itemNumber in GameServer.Instance.ResourceCache.GetGmSupportItems())
+                {
+                    if (plr.Inventory.Any(i => i.ItemNumber == itemNumber))
+                        continue;
+
+                    ShopItem shopItem;
+                    if (!shop.Items.TryGetValue(itemNumber, out shopItem))
+                    {
+                        Logger.Warn($"Gm support item {itemNumber} is not in the shop");
+                        continue;
+                    }
+
+                    // whatever it costs is beside the point, it is given away. The permanent
+                    // price is the one worth handing out, and only if the item has none does it
+                    // fall back to the first one it finds
+                    var itemInfo = shopItem.ItemInfos.FirstOrDefault(i => i.PriceGroup.Prices.Any(p => p.PeriodType == ItemPeriodType.None))
+                                   ?? shopItem.ItemInfos.FirstOrDefault();
+
+                    var price = itemInfo?.PriceGroup.Prices.FirstOrDefault(p => p.PeriodType == ItemPeriodType.None)
+                                ?? itemInfo?.PriceGroup.Prices.FirstOrDefault();
+
+                    if (price == null)
+                    {
+                        Logger.Warn($"Gm support item {itemNumber} has no price to give it away with");
+                        continue;
+                    }
+
+                    plr.Inventory.Create(itemInfo, price, 0, 0, 0);
+
+                    Logger.Info()
+                        .Account(session)
+                        .Message($"Gave the gm support item {itemNumber}")
+                        .Write();
+                }
+            }
+
             //session.Send(new SEquipedBoostItemAckMessage());
             //session.Send(new SClearInvalidateItemAckMessage());
+
+            // which arcade stages he has cleared, or the board of the mode opens empty
+            Netsphere.Game.GameRules.ArcadeGameRule.SendStageInfo(plr);
+
+            // the mission window does not repaint when STaskInfoAck arrives, so the tasks
+            // have to be there before the lobby opens it
+            await MissionService.SendMissionInfo(session).ConfigureAwait(false);
         }
 
         private static async Task<bool> IsNickAvailableAsync(string nickname)
@@ -571,6 +641,8 @@ namespace Netsphere.Network.Services
                 .ConfigureAwait(false);
             await session.SendAsync(new Message.Chat.SDenyChatListAckMessage(plr.DenyManager.Select(d => d.Map<Deny, DenyDto>()).ToArray()))
                 .ConfigureAwait(false);
+            CommunityService.SyncFriendsOnLogin(plr);
+            CommunityService.SyncCombisOnLogin(plr);
         }
 
         [MessageHandler(typeof(Message.Relay.CRequestLoginMessage))]

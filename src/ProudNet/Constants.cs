@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 using DotNetty.Common.Utilities;
 
 namespace ProudNet
@@ -144,6 +145,28 @@ namespace ProudNet
         System,
         Holepunch,
         HolepunchFreqFail
+    }
+
+    // prints every packet in and out, set S1_PACKETLOG=0 to silence it
+    internal static class PacketLog
+    {
+        public static readonly bool Enabled = Environment.GetEnvironmentVariable("S1_PACKETLOG") != "0";
+
+        private static readonly object Sync = new object();
+
+        public static void Write(bool incoming, ushort opCode, string name)
+        {
+            // ping, timesync and the proudnet internals would drown everything else
+            if (opCode >= 64000 || opCode == 50011 || opCode == 60022 || opCode == 11)
+                return;
+
+            lock (Sync)
+            {
+                Console.ForegroundColor = incoming ? ConsoleColor.Cyan : ConsoleColor.DarkGreen;
+                Console.WriteLine($"{(incoming ? "REQ <-" : "ACK ->")} [{opCode}] {name}");
+                Console.ResetColor();
+            }
+        }
     }
 
     internal static class Constants

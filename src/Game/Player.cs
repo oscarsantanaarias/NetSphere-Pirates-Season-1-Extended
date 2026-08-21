@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Data;
 using System.Threading.Tasks;
@@ -21,6 +22,11 @@ namespace Netsphere
         private byte _tutorialState;
         private byte _level;
         private uint _totalExperience;
+        private uint _totalMatches;
+        private uint _totalWins;
+        private uint _totalLosses;
+        private uint _totalKills;
+        private uint _totalDeaths;
         private uint _pen;
         private uint _ap;
         private uint _coins1;
@@ -39,7 +45,11 @@ namespace Netsphere
         public DenyManager DenyManager { get; }
         public Mailbox Mailbox { get; }
 
+        // friendAccountId -> FriendState (1=Requesting, 2=InList, 3=RequestDialog). In-memory.
+        public ConcurrentDictionary<ulong, uint> Friends { get; } = new ConcurrentDictionary<ulong, uint>();
+
         public Account Account { get; set; }
+        public StatsManager stats { get; }
         public LicenseManager LicenseManager { get; }
         public CharacterManager CharacterManager { get; }
         public Inventory Inventory { get; }
@@ -49,6 +59,10 @@ namespace Netsphere
         public PlayerRoomInfo RoomInfo { get; }
 
         internal bool SentPlayerList { get; set; }
+
+        // set while his user data says he is inside the tutorial, so the reward can be paid
+        // when he comes back out of it
+        public bool InTutorial { get; set; }
 
         public byte TutorialState
         {
@@ -130,6 +144,33 @@ namespace Netsphere
 
         #endregion
 
+        public uint TotalMatches
+        {
+            get { return _totalMatches; }
+            set { _totalMatches = value; NeedsToSave = true; }
+        }
+        public uint TotalWins
+        {
+            get { return _totalWins; }
+            set { _totalWins = value; NeedsToSave = true; }
+        }
+        public uint TotalLosses
+        {
+            get { return _totalLosses; }
+            set { _totalLosses = value; NeedsToSave = true; }
+        }
+        public uint TotalKills
+        {
+            get { return _totalKills; }
+            set { _totalKills = value; NeedsToSave = true; }
+        }
+        public uint TotalDeaths
+        {
+            get { return _totalDeaths; }
+            set { _totalDeaths = value; NeedsToSave = true; }
+        }
+
+
         public Player(GameSession session, Account account, PlayerDto dto)
         {
             Session = session;
@@ -141,6 +182,11 @@ namespace Netsphere
             _ap = (uint)dto.AP;
             _coins1 = (uint)dto.Coins1;
             _coins2 = (uint)dto.Coins2;
+            _totalMatches = (uint)dto.TotalMatches;
+            _totalWins = (uint)dto.TotalWins;
+            _totalLosses = (uint)dto.TotalLosses;
+            _totalKills = (uint)dto.TotalKills;
+            _totalDeaths = (uint)dto.TotalDeaths;
 
             Settings = new PlayerSettingManager(this, dto);
             DenyManager = new DenyManager(this, dto);
@@ -149,6 +195,39 @@ namespace Netsphere
             LicenseManager = new LicenseManager(this, dto);
             Inventory = new Inventory(this, dto);
             CharacterManager = new CharacterManager(this, dto);
+
+            using (var db = GameDatabase.Open())
+            {
+                var mine = db.Find<Netsphere.Database.Game.PlayerFriendDto>(s => s
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerFriendDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id }));
+                foreach (var f in mine)
+                    Friends[(ulong)f.FriendId] = (uint)f.PlayerState;
+
+                var incoming = db.Find<Netsphere.Database.Game.PlayerFriendDto>(s => s
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerFriendDto.FriendId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id }));
+                foreach (var f in incoming)
+                    Friends[(ulong)f.PlayerId] = (uint)f.FriendState;
+
+                dto.DeathmatchInfo = db.Find<Netsphere.Database.Game.PlayerInfoDeathmatchDto>(x => x
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoDeathmatchDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.TouchdownInfo = db.Find<Netsphere.Database.Game.PlayerInfoTouchdownDto>(x => x
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoTouchdownDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.ChaserInfo = db.Find<Netsphere.Database.Game.PlayerInfoChaserDto>(x => x
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoChaserDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.BattleRoyalInfo = db.Find<Netsphere.Database.Game.PlayerInfoBattleRoyalDto>(x => x
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoBattleRoyalDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+                dto.CaptainInfo = db.Find<Netsphere.Database.Game.PlayerInfoCaptainDto>(x => x
+                    .Where($"{nameof(Netsphere.Database.Game.PlayerInfoCaptainDto.PlayerId):C} = @Id")
+                    .WithParameters(new { Id = (int)account.Id })).ToList();
+            }
+
+            stats = new StatsManager(this, dto);
 
             RoomInfo = new PlayerRoomInfo();
         }
@@ -215,6 +294,8 @@ namespace Netsphere
 
             if (!leveledUp)
                 return false;
+
+            Netsphere.Network.Services.MissionService.OnLevelUp(this);
 
             Channel?.Broadcast(new SUserDataAckMessage(this.Map<Player, UserDataDto>()));
 
@@ -304,7 +385,25 @@ namespace Netsphere
         /// <param name="message">The message to send</param>
         public void SendConsoleMessage(string message)
         {
-            Session.SendAsync(new SAdminActionAckMessage { Result = 1, Message = message });
+            // the client labels every console answer with the result byte: 0 is the only one
+            // that reads "Success", 3 and 4 are other messages and anything else comes out as
+            // "Unknown Error Code", which is what the console used to say before every reply.
+            // One answer is one line in the window, so anything with newlines in it has to go
+            // as several answers or it comes out as one line running off the screen
+            var color = message.StartsWith("{CB-") ? message.Substring(0, message.IndexOf('}') + 1) : "";
+
+            foreach (var line in message.Split('\n'))
+            {
+                var text = line.TrimEnd();
+                if (string.IsNullOrWhiteSpace(text))
+                    continue;
+
+                Session.SendAsync(new SAdminActionAckMessage
+                {
+                    Result = 0,
+                    Message = text.StartsWith(color) ? text : color + text
+                });
+            }
         }
 
         /// <summary>
@@ -335,11 +434,17 @@ namespace Netsphere
                         AP = (int)AP,
                         Coins1 = (int)Coins1,
                         Coins2 = (int)Coins2,
-                        CurrentCharacterSlot = CharacterManager.CurrentSlot
+                        CurrentCharacterSlot = CharacterManager.CurrentSlot,
+                        TotalMatches = (int)TotalMatches,
+                        TotalWins = (int)TotalWins,
+                        TotalLosses = (int)TotalLosses,
+                        TotalKills = (int)TotalKills,
+                        TotalDeaths = (int)TotalDeaths
                     });
                     NeedsToSave = false;
                 }
 
+                stats.Save(db);
                 Settings.Save(db);
                 Inventory.Save(db);
                 CharacterManager.Save(db);

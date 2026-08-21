@@ -272,13 +272,13 @@ namespace Netsphere.Network.Message.Game
     public class CTaskRequestReqMessage : IGameMessage
     {
         [BlubMember(0)]
-        public byte Unk1 { get; set; }
+        public byte Type { get; set; }
 
         [BlubMember(1)]
-        public uint TaskId { get; set; }
+        public uint Level { get; set; }
 
         [BlubMember(2)]
-        public byte Unk2 { get; set; } // slot?
+        public byte Slot { get; set; }
     }
 
     [BlubContract]
@@ -287,40 +287,42 @@ namespace Netsphere.Network.Message.Game
         [BlubMember(0)]
         public bool IsWeapon { get; set; }
 
+        // the gender the item slot carries: 0 male, 1 female, 2 once the slot shows an item.
+        // sub_61D950 writes it off the character, and only the costume tab uses it
         [BlubMember(1)]
-        public byte Unk2 { get; set; }
+        public byte Gender { get; set; }
 
         [BlubMember(2)]
-        public byte Unk3 { get; set; }
+        public byte HoldItem { get; set; }
 
         [BlubMember(3)]
-        public byte Unk4 { get; set; }
+        public byte HoldColor { get; set; }
 
         [BlubMember(4)]
-        public byte Unk5 { get; set; }
+        public byte HoldEffect { get; set; }
 
         [BlubMember(5)]
-        public uint Unk6 { get; set; }
+        public uint HeldItemNumber { get; set; }
 
         [BlubMember(6)]
-        public int Unk7 { get; set; }
+        public int HeldColor { get; set; }
 
         [BlubMember(7)]
-        public int Unk8 { get; set; }
+        public int HeldEffect { get; set; }
     }
 
     [BlubContract]
     public class CRandomShopItemGetReqMessage : IGameMessage
     {
         [BlubMember(0)]
-        public byte Unk { get; set; }
+        public byte Tab { get; set; }
     }
 
     [BlubContract]
     public class CRandomShopItemSaleReqMessage : IGameMessage
     {
         [BlubMember(0)]
-        public byte Unk { get; set; }
+        public byte Tab { get; set; }
     }
 
     [BlubContract]

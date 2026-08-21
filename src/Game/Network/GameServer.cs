@@ -72,6 +72,7 @@ namespace Netsphere.Network
                     .AddHandler(new ChannelService())
                     .AddHandler(new ShopService())
                     .AddHandler(new InventoryService())
+                    .AddHandler(new MissionService())
                     .AddHandler(new RoomService())
                     .AddHandler(new ClubService())
 
@@ -100,6 +101,9 @@ namespace Netsphere.Network
                     .RegisterRule<CQuickStartReqMessage>(MustBeLoggedIn, MustBeInChannel, MustNotBeInRoom)
                     .RegisterRule<CJoinTunnelInfoReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom)
                     .RegisterRule<CChangeTeamReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom)
+                    .RegisterRule<CAutoMixingTeamReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom, MustBeRoomMaster)
+                    .RegisterRule<CAutoAssingTeamReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom, MustBeRoomMaster)
+                    .RegisterRule<CMixChangeTeamReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom, MustBeRoomMaster)
                     .RegisterRule<CPlayerGameModeChangeReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom)
                     .RegisterRule<CScoreKillReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom)
                     .RegisterRule<CScoreKillAssistReqMessage>(MustBeLoggedIn, MustBeInChannel, MustBeInRoom)
@@ -151,7 +155,9 @@ namespace Netsphere.Network
                 .Add(new ReloadCommand())
                 .Add(new GameCommands())
                 .Add(new InventoryCommands())
-                .Add(new GMCommands());
+                .Add(new GMCommands())
+                .Add(new AdminCommands())
+                .Add(new HelpCommand());
 
             PlayerManager = new PlayerManager();
             ResourceCache = new ResourceCache();
@@ -179,35 +185,46 @@ namespace Netsphere.Network
         protected override void OnDisconnected(ProudSession session)
         {
             var gameSession = (GameSession)session;
-            if (gameSession.Player != null)
+            var plr = gameSession.Player;
+            if (plr != null)
             {
-                gameSession.Player.Room?.Leave(gameSession.Player);
-                gameSession.Player.Channel?.Leave(gameSession.Player);
+                // every step on its own: this used to be one straight run, and a throw halfway
+                // through (a room that says no, the database being down on the save) left the
+                // player in the channel, in his room and in the player list, alive forever
+                Step(() => plr.Room?.Leave(plr), gameSession, "leaving the room");
+                Step(() => plr.Channel?.Leave(plr), gameSession, "leaving the channel");
+                Step(() => plr.Save(), gameSession, "saving");
+                Step(() => PlayerManager.Remove(plr), gameSession, "removing from the player list");
+                Step(() => Netsphere.Shop.FumbiShop.Remove(plr), gameSession, "clearing the fumbi roll");
 
-                gameSession.Player.Save();
-
-                PlayerManager.Remove(gameSession.Player);
+                Netsphere.Shop.FumbiShop.Remove(gameSession.Player);
 
                 Logger.Debug()
                     .Account(gameSession)
                     .Message("Disconnected")
                     .Write();
 
-                if (gameSession.Player.ChatSession != null)
+                Step(() =>
                 {
-                    gameSession.Player.ChatSession.GameSession = null;
-                    gameSession.Player.ChatSession.Dispose();
-                }
+                    if (plr.ChatSession != null)
+                    {
+                        plr.ChatSession.GameSession = null;
+                        plr.ChatSession.Dispose();
+                    }
+                }, gameSession, "closing the chat session");
 
-                if (gameSession.Player.RelaySession != null)
+                Step(() =>
                 {
-                    gameSession.Player.RelaySession.GameSession = null;
-                    gameSession.Player.RelaySession.Dispose();
-                }
+                    if (plr.RelaySession != null)
+                    {
+                        plr.RelaySession.GameSession = null;
+                        plr.RelaySession.Dispose();
+                    }
+                }, gameSession, "closing the relay session");
 
-                gameSession.Player.Session = null;
-                gameSession.Player.ChatSession = null;
-                gameSession.Player.RelaySession = null;
+                plr.Session = null;
+                plr.ChatSession = null;
+                plr.RelaySession = null;
                 gameSession.Player = null;
             }
 
@@ -240,9 +257,63 @@ namespace Netsphere.Network
             Broadcast(new SNoticeMessageAckMessage(message));
         }
 
+        private static void Step(Action what, GameSession session, string name)
+        {
+            try
+            {
+                what();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error()
+                    .Account(session)
+                    .Exception(ex)
+                    .Message($"Cleanup failed while {name}")
+                    .Write();
+            }
+        }
+
+        // a client that dies without closing the connection, a crash or a pulled cable, keeps
+        // its session, its slot in the room and its line in the channel list. The speedhack ping
+        // comes in on its own every few seconds, so a session that has not sent one in a while
+        // is not there any more
+        private static readonly TimeSpan DeadSessionTimeout = TimeSpan.FromSeconds(90);
+        private TimeSpan _deadSessionTimer;
+
+        private void DropDeadSessions(TimeSpan delta)
+        {
+            _deadSessionTimer += delta;
+            if (_deadSessionTimer < TimeSpan.FromSeconds(15))
+                return;
+
+            _deadSessionTimer = TimeSpan.Zero;
+
+            foreach (var session in Sessions.Values.ToArray())
+            {
+                var gameSession = session as GameSession;
+                if (gameSession?.Player == null)
+                    continue;
+
+                if (session.LastSpeedHackDetectorPing == DateTime.MinValue)
+                    continue;
+
+                if (DateTime.Now - session.LastSpeedHackDetectorPing < DeadSessionTimeout)
+                    continue;
+
+                Logger.Info()
+                    .Account(gameSession)
+                    .Message($"No ping for {(int)(DateTime.Now - session.LastSpeedHackDetectorPing).TotalSeconds}s, dropping")
+                    .Write();
+
+                Step(() => session.Dispose(), gameSession, "dropping a dead session");
+            }
+        }
+
         private void Worker(TimeSpan delta)
         {
             ChannelManager.Update(delta);
+
+            DropDeadSessions(delta);
 
             // ToDo Use another thread for this?
             _saveTimer = _saveTimer.Add(delta);
@@ -427,7 +498,12 @@ namespace Netsphere.Network
                 .Function(dest => dest.ChannelId, src => src.Channel != null ? (short)src.Channel.Id : (short)-1)
                 .Function(dest => dest.RoomId, src => src.Room?.Id ?? 0xFFFFFFFF) // ToDo: Tutorial, License
                 .Function(dest => dest.Team, src => src.RoomInfo?.Team?.Team ?? Team.Neutral)
-                .Function(dest => dest.TotalExp, src => src.TotalExperience);
+                .Function(dest => dest.TotalExp, src => src.TotalExperience)
+                .Function(dest => dest.DMStats, src => src.stats.DeathMatch.GetUserDataDto())
+                .Function(dest => dest.TDStats, src => src.stats.TouchDown.GetUserDataDto())
+                .Function(dest => dest.ChaserStats, src => src.stats.Chaser.GetUserDataDto())
+                .Function(dest => dest.BattleRoyalStats, src => src.stats.BattleRoyal.GetUserDataDto())
+                .Function(dest => dest.CaptainStats, src => src.stats.Captain.GetUserDataDto());
 
             Mapper.Register<Player, UserDataWithNickDto>()
                 .Member(dest => dest.AccountId, src => src.Account.Id)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -82,6 +82,8 @@ namespace Netsphere
                     .Message($"Acquired license {itemLicense}")
                     .Write();
             }
+
+            Netsphere.Network.Services.MissionService.OnLicense(_player, itemLicense);
 
             return license;
         }

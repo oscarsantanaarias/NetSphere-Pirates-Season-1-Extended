@@ -33,10 +33,22 @@ namespace Netsphere.Resource
                     .Select(dto => new ShopEffectGroup(dto))
                     .ToDictionary(x => x.Id);
 
+                // the left outer join gives one group row per price, so a group with more
+                // than one period comes back duplicated
                 _prices = db.Find<ShopPriceGroupDto>(statement => statement
                         .Include<ShopPriceDto>(join => join.LeftOuterJoin()))
                     .ToArray()
-                    .Select(dto => new ShopPriceGroup(dto))
+                    .GroupBy(dto => dto.Id)
+                    .Select(rows =>
+                    {
+                        var dto = rows.First();
+                        dto.ShopPrices = rows
+                            .SelectMany(row => row.ShopPrices)
+                            .GroupBy(price => price.Id)
+                            .Select(price => price.First())
+                            .ToList();
+                        return new ShopPriceGroup(dto);
+                    })
                     .ToDictionary(x => x.Id);
 
                 _items = db.Find<ShopItemDto>(statement => statement
