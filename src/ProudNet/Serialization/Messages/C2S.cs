@@ -21,13 +21,6 @@ namespace ProudNet.Serialization.Messages
         public uint Reason { get; set; }
     }
 
-    // he gives up on udp and asks for his traffic to go over the tcp relay. Nobody was
-    // listening, so the server kept firing udp at him that never arrived
-    [BlubContract]
-    internal class NotifyUdpToTcpFallbackByClientMessage : IMessage
-    {
-    }
-
     [BlubContract]
     internal class P2PGroup_MemberJoin_AckMessage : IMessage
     {

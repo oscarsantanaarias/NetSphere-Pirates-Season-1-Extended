@@ -185,27 +185,6 @@ namespace ProudNet.Serialization.Messages
         }
     }
 
-    // the other end of a direct link that went down has to hear about it, or he keeps
-    // shooting at a peer that is not listening any more instead of falling back to the relay
-    [BlubContract]
-    internal class P2P_NotifyDirectP2PDisconnected2Message : IMessage
-    {
-        [BlubMember(0)]
-        public uint HostId { get; set; }
-
-        [BlubMember(1)]
-        public uint Reason { get; set; }
-
-        public P2P_NotifyDirectP2PDisconnected2Message()
-        { }
-
-        public P2P_NotifyDirectP2PDisconnected2Message(uint hostId, uint reason)
-        {
-            HostId = hostId;
-            Reason = reason;
-        }
-    }
-
     [BlubContract]
     internal class NotifyDirectP2PEstablishMessage : IMessage
     {
