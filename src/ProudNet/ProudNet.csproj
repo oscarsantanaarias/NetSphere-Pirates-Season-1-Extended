@@ -116,7 +116,6 @@
     <Compile Include="Serialization\Serializers\IPEndPointSerializer.cs" />
     <Compile Include="Serialization\Serializers\ReadToEndSerializer.cs" />
     <Compile Include="Serialization\Serializers\ScalarSerializer.cs" />
-    <Compile Include="Serialization\Serializers\SizeGuard.cs" />
     <Compile Include="Serialization\Serializers\StreamSerializer.cs" />
     <Compile Include="Serialization\Serializers\StreamWithScalarSerializer.cs" />
     <Compile Include="Serialization\Serializers\StringSerializer.cs" />
