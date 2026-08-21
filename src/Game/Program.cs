@@ -39,7 +39,8 @@ namespace Netsphere
 
         private static void Main()
         {
-            SetErrorMode(ErrorModes.SEM_NOGPFAULTERRORBOX);  //<-----
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                SetErrorMode(ErrorModes.SEM_NOGPFAULTERRORBOX);  //<-----
             JsonConvert.DefaultSettings = () => new JsonSerializerSettings
             {
                 Converters = new List<JsonConverter> { new IPEndPointConverter() }
@@ -84,7 +85,7 @@ namespace Netsphere
             {
                 var input = Console.ReadLine();
                 if (input == null)
-                    break;
+                    System.Threading.Thread.Sleep(System.Threading.Timeout.Infinite);
 
                 if (input.Equals("exit", StringComparison.InvariantCultureIgnoreCase) ||
                     input.Equals("quit", StringComparison.InvariantCultureIgnoreCase) ||
@@ -352,7 +353,7 @@ namespace Netsphere
             switch (engine)
             {
                 case DatabaseEngine.MySQL:
-                    connection = new MySql.Data.MySqlClient.MySqlConnection(s_connectionString);
+                    connection = new MySqlConnector.MySqlConnection(s_connectionString);
                     break;
 
                 case DatabaseEngine.SQLite:
@@ -428,7 +429,7 @@ namespace Netsphere
             switch (engine)
             {
                 case DatabaseEngine.MySQL:
-                    connection = new MySql.Data.MySqlClient.MySqlConnection(s_connectionString);
+                    connection = new MySqlConnector.MySqlConnection(s_connectionString);
                     break;
 
                 case DatabaseEngine.SQLite:

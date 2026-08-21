@@ -72,7 +72,7 @@ namespace ProudNet.Handlers
                     w.Write(26625);
                     w.Write(41984);
                     var encrypted = rsa.Encrypt(session.Crypt.RC4.Key, false);
-                    w.Write(encrypted.Reverse());
+                    w.Write(System.Linq.Enumerable.Reverse(encrypted).ToArray());
                     blob = w.ToArray();
                 }
                 session.SendAsync(new NotifyCSSessionKeySuccessMessage(blob));
